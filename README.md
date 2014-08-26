@@ -1,29 +1,11 @@
-![image.jpg](https://bitbucket.org/repo/GAe9B6/images/3899510089-image.jpg)# README #
+![image.jpg](https://bitbucket.org/repo/GAe9B6/images/3899510089-image.jpg)
 
-This README would normally document whatever steps are necessary to get your application up and running.
+This project is meant to be part of the larger DietyTD game, namely for generating dynamic (and hopefully, attractive) backgrounds.
 
-### What is this repository for? ###
-
-* Quick summary
-* Version
-* [Learn Markdown](https://bitbucket.org/tutorials/markdowndemo)
-
-### How do I get set up? ###
-
-* Summary of set up
-* Configuration
-* Dependencies
-* Database configuration
-* How to run tests
-* Deployment instructions
-
-### Contribution guidelines ###
-
-* Writing tests
-* Code review
-* Other guidelines
-
-### Who do I talk to? ###
-
-* Repo owner or admin
-* Other community or team contact
+Implements an (at the moment) basic version of Draves' fractal flames. Still lacks:
+- density estimation
+- final transforms
+- the full list of variations
+- alpha channel?
+- faster execution 
+- looping (want to be able to make a finite sequence that can smoothly loop)
