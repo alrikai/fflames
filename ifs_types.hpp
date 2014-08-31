@@ -3,6 +3,9 @@
 
 #include <random>
 #include <tuple>
+#include <thread>
+#include <memory>
+#include <iostream>
 
 namespace fflame_constants
 {
@@ -130,5 +133,64 @@ struct flame_point
     data_t param_a, param_b, param_c, param_d, param_e, param_f;
 };
 
+//helper threading class for running the fractal flames.
+//carries the necessary per-thread state (since I don't have
+//thread_local supported on my compiler apparently)
+class flame_thread
+{
+private:    
+    fflame_randutil::fast_rand rand_gen;
+    std::unique_ptr<std::thread> fthread;
+
+public:
+    flame_thread(uint64_t seed0, uint64_t seed1)
+       : rand_gen(seed0, seed1), fthread(nullptr)
+    {}
+
+    flame_thread(const flame_thread&) = delete;
+    flame_thread& operator= (const flame_thread&) = delete;
+
+    
+    flame_thread(flame_thread&& other)
+        : rand_gen(other.rand_gen)
+    {
+        fthread = std::move(other.fthread);
+
+        //what to do if the current object's thread object is running?
+        other.rand_gen = fflame_randutil::fast_rand(0, 0);
+        other.fthread = nullptr;
+    }
+    
+
+    ~flame_thread()
+    {
+        //note: it's not a very good idea to do it this way. We would have to interrupt the thread
+        //first. Plus I'm pretty sure join throws exceptions. It'll be fine for the current usage,
+        //but not in any other
+        if(fthread)
+        {
+            std::cout << "Finishing thread " << fthread->get_id() << std::endl;
+            fthread->join();
+        }
+    }
+
+    template <typename fcn_t, typename ... fcnargs_t>
+    bool do_flame(fcn_t fcn, fcnargs_t&& ... args)
+    {
+        //check if the thread already exists
+        if(fthread)
+            return false;
+
+        fthread = std::unique_ptr<std::thread>(new std::thread(fcn, std::forward<fcnargs_t>(args)..., std::ref(rand_gen)));
+        return (fthread != nullptr);
+    }
+
+    void finish_flame()
+    {
+        std::cout << "Finishing thread " << fthread->get_id() << std::endl;
+        fthread->join();    
+        fthread.reset(nullptr);
+    }
+};
 
 #endif
