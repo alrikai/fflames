@@ -82,14 +82,6 @@ int main(int argc, char* argv[])
         if(image.empty())
             std::cout << "invalid image" << std::endl;
 
-        //get rid of any NaNs
-        cv::Mat_<cv::Vec<uint8_t, 3>> mask = cv::Mat(image != image);
-        for (int r = 0; r < image.rows; ++r)
-            for (int c = 0; c < image.cols; ++c)
-                for (int ch = 0; ch < 3; ++ch)
-                    if(mask(r,c)(ch))
-                        image(r,c)(ch) = 0;
-
         std::cout << "Writing frames [" << output_index;
         if(i > 0)
             output_index = interpolate_frames(prev_image, image, 30, out_filebasepath, output_index);
@@ -109,21 +101,3 @@ int main(int argc, char* argv[])
     return 0;
 }
 
-/*
- * @TODO: figure out how best to create the animations. Do we generate a still frame using a subset of 
- * the variants, then tweak the variants/parameters/weights/probabilities, then generate another still
- * frame, then interpolate between the frames to have a smooth motion?
- * If so, we will need to be able to modify the following parameters:
- * - variation list
- * - variation affine parameter (pre and post transforms)
- * - variation weights
- * - variation probabilities
- *
- *   Since we want the movements between frames to be gradual, we will want to carry most of the same
- *   parameters through between the still frames. Hence, we can either have a long-running invoker object,
- *   or have some state object that we use to initialize the invoker each time. 
- *
- *   Also, we should move the random number generator state to a thread wrapper object, such that the 
- *   object has both the thread object and any per-thread state information (e.g. random number seed vals,
- *   in this case a uint64_t[2] array)
- */

@@ -23,7 +23,7 @@ namespace fflame_constants
     constexpr int hist_height = imheight;
     constexpr int hist_width = imwidth;
 
-    constexpr double gamma = 2.2;
+    constexpr double gamma = 1.2;
     constexpr double gamma_factor = 1.0/gamma;
 
     constexpr double PI = 3.14159265358979323; 

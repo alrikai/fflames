@@ -66,6 +66,9 @@ struct fflame_histdata
 };
 template <typename data_t, typename pixel_t>
 fflame_data<data_t, pixel_t> fflame_histdata<data_t, pixel_t>::fdata;
+
+template <typename data_t, typename pixel_t = cv::Vec<data_t, 3>>
+void render_fractal_flame(cv::Mat_<pixel_t>& image);
 /////////////////////////////////////////////////////////////////////////////
 
 
@@ -154,12 +157,31 @@ void generate_fractal_flame(affine_fcns::invoker<data_t>& flamer, cv::Mat_<pixel
      *  done and single-threaded execution from here on down
      */
     std::cout << "Done with generation, moving to image generation..." << std::endl;
-   
-    image = cv::Mat_<data_t>::zeros(fflame_constants::imheight, fflame_constants::imwidth);
+    image = cv::Mat_<pixel_t>::zeros(fflame_constants::imheight, fflame_constants::imwidth);
+    render_fractal_flame<data_t, pixel_t>(image);
+
+    auto current_time = std::chrono::high_resolution_clock::now();
+    double time_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(current_time - start_time).count();
+    std::cout << "Took " << time_elapsed << " ms" << std::endl;
+}
+
+
+template <typename data_t, typename pixel_t = cv::Vec<data_t, 3>>
+void render_fractal_flame(cv::Mat_<pixel_t>& image)
+{
+    cv::Mat_<pixel_t> raw_image = cv::Mat_<data_t>::zeros(fflame_constants::imheight, fflame_constants::imwidth);
     auto& freq_hist = fflame_histdata<data_t, pixel_t>::fdata.freq_hist;
     auto& color_hist = fflame_histdata<data_t, pixel_t>::fdata.color_hist;
 
     const data_t freq_max_log = std::log10(*std::max_element(freq_hist.begin(), freq_hist.end()));
+    
+    //density estimation parameters
+    const double min_est = 0.0;
+    const double est_radius = 9.0;
+    const double est_curve = 0.4;
+
+    std::map<size_t, cv::Mat_<double>> density_est_kernels;
+    cv::Mat_<uint64_t> image_density = cv::Mat_<uint64_t>::zeros(fflame_constants::imheight, fflame_constants::imwidth);
 
     //NOTE: we assume the histogram dimensions are multiples of the image dimensions
     const int rowpx_factor = fflame_constants::hist_height/fflame_constants::imheight;
@@ -182,18 +204,78 @@ void generate_fractal_flame(affine_fcns::invoker<data_t>& flamer, cv::Mat_<pixel
                 }
             }
 
+            const auto freq_count = freq_avg;
             freq_avg /= rowpx_factor*colpx_factor;
             color_avg /= rowpx_factor*colpx_factor;
 
             data_t alpha = std::log10(freq_avg)/freq_max_log;
-            image(im_row, im_col) = 255 * color_avg * std::pow(alpha, fflame_constants::gamma_factor); 
+            raw_image(im_row, im_col) = 255 * color_avg * std::pow(alpha, fflame_constants::gamma_factor); 
+
+            //next, we apply the density estimation filtering
+            int kernel_width = std::lround(std::max(min_est, (est_radius / (std::pow(static_cast<double>(freq_count), est_curve)))));
+
+            //dont do anything if we have a kernel size not-larger than 1 element
+            if(kernel_width > 1)
+            {
+                //make sure we have an odd kernel size
+                if(kernel_width % 2 == 0)
+                    kernel_width++;
+
+                //add the kernel matrix if it doesnt already exist
+                auto kernel_it = density_est_kernels.find(kernel_width);
+                if(kernel_it == density_est_kernels.end())
+                {
+                    //opencv default sigma: 0.3*((ksize-1)*0.5 - 1) + 0.8
+                    cv::Mat_<double> kernel = cv::getGaussianKernel(kernel_width, -1);
+
+                    cv::Mat_<double> kernel_2d = kernel*kernel.t();
+                    //store a square 2D gaussian kernel
+                    density_est_kernels.insert(std::make_pair(kernel_width, kernel_2d));
+                    std::cout << "adding density estimation kernel @width " << kernel_width << " @ " << kernel_2d.rows << ", " << kernel_2d.cols << std::endl;
+                }
+
+                //associate the kernel to the current pixel
+                image_density(im_row, im_col) = kernel_width;
+            }
         }
     }
 
+    //get rid of any NaNs
+    cv::Mat_<cv::Vec<uint8_t, 3>> mask = cv::Mat(raw_image != raw_image);
+    for (int r = 0; r < fflame_constants::imheight; ++r)
+        for (int c = 0; c < fflame_constants::imwidth; ++c)
+            for (int ch = 0; ch < 3; ++ch)
+                if(mask(r,c)(ch))
+                    raw_image(r,c)(ch) = 0;
 
-    auto current_time = std::chrono::high_resolution_clock::now();
-    double time_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(current_time - start_time).count();
-    std::cout << "Took " << time_elapsed << " ms" << std::endl;
+    std::cout << "density estimation: " << density_est_kernels.size() << " #kernels" << std::endl;
+
+    //NOTE: have to apply the density estimation afterwards, since it requires pixels following the anchor pixel
+    for (int im_row = 0; im_row < fflame_constants::imheight; ++im_row)
+    {
+        for (int im_col = 0; im_col < fflame_constants::imwidth; ++im_col)
+        {
+            const int kernel_width = image_density(im_row, im_col);
+            const int kernel_hwidth = std::floor(kernel_width/2);
+            auto kernel_it = density_est_kernels.find(kernel_width);
+            if(kernel_it != density_est_kernels.end())
+            {
+                auto kernel = kernel_it->second;
+                int kernel_ridx = 0;
+                int kernel_cidx = 0;
+                //clamps out of range indices at the borders
+                for (int k_row = std::max(0, im_row-kernel_hwidth); k_row < std::min(fflame_constants::imheight-1, im_row+kernel_hwidth); ++k_row, ++kernel_ridx)
+                    for (int k_col = std::max(0, im_col-kernel_hwidth); k_col < std::min(fflame_constants::imwidth-1, im_col+kernel_hwidth); ++k_col, ++kernel_cidx)
+                        image(im_row, im_col) += raw_image(k_row, k_col) * kernel(kernel_ridx, kernel_cidx);
+            }
+            else
+                image(im_row, im_col) = raw_image(im_row, im_col);
+        }
+    }
+
+    static int counter = 0;
+    const std::string raw_impath = "raw_image__" + std::to_string(counter++) + ".png";
+    cv::imwrite(raw_impath, raw_image);
 }
 
 #endif
