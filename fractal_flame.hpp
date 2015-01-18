@@ -166,7 +166,7 @@ void generate_fractal_flame(affine_fcns::invoker<data_t>& flamer, cv::Mat_<pixel
 }
 
 
-template <typename data_t, typename pixel_t = cv::Vec<data_t, 3>>
+template <typename data_t, typename pixel_t>
 void render_fractal_flame(cv::Mat_<pixel_t>& image)
 {
     cv::Mat_<pixel_t> raw_image = cv::Mat_<data_t>::zeros(fflame_constants::imheight, fflame_constants::imwidth);
