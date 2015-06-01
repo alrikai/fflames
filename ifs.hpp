@@ -2,7 +2,6 @@
 #define FF_IFS_HPP
 
 #include "ifs_types.hpp"
-#include "factory.hpp"
 
 #include <cmath>
 #include <cassert>
@@ -837,8 +836,12 @@ namespace affine_fcns
     template <typename data_t>
     const std::vector<std::string> variant_list<data_t>::variant_names  
     {
-        V0<data_t>::name, V1<data_t>::name, V2<data_t>::name, V3<data_t>::name, V4<data_t>::name, 
-        V5<data_t>::name
+        V0<data_t>::name,  V1<data_t>::name, V2<data_t>::name, V3<data_t>::name, V4<data_t>::name, 
+        V5<data_t>::name,  V6<data_t>::name,  V7<data_t>::name,  V8<data_t>::name,  V9<data_t>::name, 
+        V10<data_t>::name, V11<data_t>::name, V12<data_t>::name, V13<data_t>::name, V14<data_t>::name, 
+        V15<data_t>::name, V16<data_t>::name, V17<data_t>::name, V18<data_t>::name, V19<data_t>::name,
+        V20<data_t>::name, V21<data_t>::name, V22<data_t>::name, V23<data_t>::name, V24<data_t>::name,
+        V25<data_t>::name 
     };
 
 ////////////////////////////////////////////////////////////////////////////////////////

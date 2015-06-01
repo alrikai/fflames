@@ -1,11 +1,14 @@
 #ifndef FF_IFS_CONSTANTS_HPP
 #define FF_IFS_CONSTANTS_HPP
 
+#include "ff_utils.hpp"
+
 #include <random>
 #include <tuple>
 #include <thread>
 #include <memory>
 #include <iostream>
+#include <map>
 
 namespace fflame_constants
 {
@@ -29,41 +32,35 @@ namespace fflame_constants
     constexpr double PI = 3.14159265358979323; 
 }
 
-namespace fflame_randutil
+
+template <class VariantType,
+	       typename KeyType,
+	       typename VariantCreator> 
+class flame_factory
 {
-    std::default_random_engine& get_engine()
+public:
+	VariantType* create_variant(const KeyType& id)
     {
-        static std::random_device rdev{};
-        static std::default_random_engine eng{rdev()};
-        return eng;
+        auto variant_iter = creator_map.find(id);
+        if(variant_iter != creator_map.end())
+            return (variant_iter->second)();
+        return nullptr;
     }
 
-    //we assume the min value in the range is 0
-    struct fast_rand
+	bool register_variant(const KeyType& id, VariantCreator creator)
     {
-        fast_rand(uint64_t seed0, uint64_t seed1)
-            : s{seed0, seed1}
-        {}
-
-        uint64_t xorshift128plus(uint64_t max_val) {
-            uint64_t s1 = s[ 0 ];
-            const uint64_t s0 = s[ 1 ];
-            s[ 0 ] = s0;
-            s1 ^= s1 << 23;
-            return (( s[ 1 ] = ( s1 ^ s0 ^ ( s1 >> 17 ) ^ ( s0 >> 26 ) ) ) + s0) % max_val;
-        }
-        uint64_t s[2];
-    };
-
-    /*
-    static int fcn_rand(const int min, const int max) {
-        static std::thread_local std::mt19937 generator;
-        std::uniform_int_distribution<int> distribution(min,max);
-        return distribution(generator);
+        return creator_map.insert(std::pair<KeyType, VariantCreator>(id, creator)).second;
     }
-    */
 
-}
+	bool unregister_variant(const KeyType& id)
+    {
+        return (creator_map.erase(id) == 1);
+    }
+
+private:
+	std::map<KeyType, VariantCreator> creator_map;
+};
+
 
 template <typename pixel_t>
 struct histogram_info
