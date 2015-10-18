@@ -6,38 +6,40 @@
 #include <mutex>
 #include <condition_variable>
 
-namespace fflame_randutil
+#include <iostream>
+
+namespace fflame_util
 {
 
 std::default_random_engine& get_engine()
 {
-		static std::random_device rdev{};
-		static std::default_random_engine eng{rdev()};
-		return eng;
+    static std::random_device rdev{};
+    static std::default_random_engine eng{rdev()};
+    return eng;
 }
 
 //we assume the min value in the range is 0
 struct fast_rand
 {
-		fast_rand(uint64_t seed0, uint64_t seed1)
-				: s{seed0, seed1}
-		{}
+    fast_rand(uint64_t seed0, uint64_t seed1)
+        : s{seed0, seed1}
+    {}
 
-		uint64_t xorshift128plus(uint64_t max_val) {
-				uint64_t s1 = s[ 0 ];
-				const uint64_t s0 = s[ 1 ];
-				s[ 0 ] = s0;
-				s1 ^= s1 << 23;
-				return (( s[ 1 ] = ( s1 ^ s0 ^ ( s1 >> 17 ) ^ ( s0 >> 26 ) ) ) + s0) % max_val;
-		}
-		uint64_t s[2];
+    uint64_t xorshift128plus(uint64_t max_val) {
+        uint64_t s1 = s[ 0 ];
+        const uint64_t s0 = s[ 1 ];
+        s[0] = s0;
+        s1 ^= s1 << 23;
+        return (( s[ 1 ] = ( s1 ^ s0 ^ ( s1 >> 17 ) ^ ( s0 >> 26 ) ) ) + s0) % max_val;    
+    }
+    uint64_t s[2];
 };
 
 /*
 static int fcn_rand(const int min, const int max) {
-		static std::thread_local std::mt19937 generator;
-		std::uniform_int_distribution<int> distribution(min,max);
-		return distribution(generator);
+    static std::thread_local std::mt19937 generator;
+    std::uniform_int_distribution<int> distribution(min,max);
+    return distribution(generator);
 }
 */
 
@@ -71,6 +73,25 @@ private:
 };
 
 
+class Barrier
+{
+private:
+    std::mutex _mutex;
+    std::condition_variable _cv;
+    std::size_t _count;
+public:
+    explicit Barrier(std::size_t count) : _count{count} { }
+    void Wait()
+    {
+        std::unique_lock<std::mutex> lock{_mutex};
+        if (--_count == 0) {
+            _cv.notify_all();
+        } else {
+            _cv.wait(lock, [this] { return _count == 0; });
+        }
+    }
+};
+
 class barrier
 {
 public:
@@ -83,11 +104,15 @@ public:
         std::unique_lock<std::mutex> b_lock (barrier_mtx);
 
         barrier_count--;
-        barrier_cv.wait(b_lock, [this]()
+		if(barrier_count <= 0) {
+            barrier_cv.notify_all();
+		} else {
+			std::cout << "thread " << std::this_thread::get_id() << " waiting @barrier" << std::endl;
+            barrier_cv.wait(b_lock, [this]()
             {
                 return barrier_count <= 0;
             });
-        barrier_cv.notify_all();
+		}
     }
 
     void reset(int count)

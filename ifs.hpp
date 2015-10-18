@@ -1,6 +1,7 @@
 #ifndef FF_IFS_HPP
 #define FF_IFS_HPP
 
+#include "util/factory.hpp"
 #include "ifs_types.hpp"
 
 #include <cmath>
@@ -398,7 +399,7 @@ namespace affine_fcns
   
             //omega is "a random variable that's either 0 or pi"
             static std::uniform_int_distribution<> omega_dist(0, 1); 
-            theta += fflame_constants::PI * omega_dist(fflame_randutil::get_engine());
+            theta += fflame_constants::PI * omega_dist(fflame_util::get_engine());
   
             point.x = r_factor * std::cos(theta);
             point.y = r_factor * std::sin(theta);
@@ -733,7 +734,41 @@ namespace affine_fcns
     const std::string V25<data_t>::name {"cylinder"};
 
     //////////////////////////////////////////////////////////////////
+ 
+    template <typename data_t>
+    struct V26 : variant<data_t>
+    {
+        const static std::string name;
+        using variant<data_t>::weight;
+        using variant<data_t>::color;
 
+        V26 (const double weight, data_t blob_high, data_t blob_low, data_t blob_waves, const std::vector<data_t>& color = {0.2, 1.0, 0.1})
+          : variant<data_t>(weight, color) 
+        {
+          blob_factor = (blob_high - blob_low)/2.0;
+          blob_low = blob_low;
+          blob_waves = blob_waves;
+        }
+
+        void apply_variant(flame_point<data_t>& point) override
+        {
+          const auto r_factor = std::sqrt(point.x * point.x + point.y * point.y);
+          const auto theta = std::atan2(point.x, point.y);
+
+          const auto coeff = weight * r_factor * (blob_low + blob_factor * (std::sin(blob_waves * theta) + 1));
+          point.x = coeff * std::cos(theta);
+          point.y = coeff * std::sin(theta);
+
+          detail::blend_colors(color, point);
+        }
+
+        data_t blob_factor;
+        data_t blob_low;
+        data_t blob_waves;
+    };
+    template <typename data_t>
+    const std::string V26<data_t>::name {"blob"};
+   
 /*
     //////////////////////////////////////////////////////////////////
     template <typename data_t>
@@ -759,25 +794,6 @@ namespace affine_fcns
     //    this is the start of the parameteric equations
     ////////////////////////////////////////////////////////////
 
-    /*
-    //blob 
-    template <typename data_t>
-    void V23(flame_point<data_t>& point, const double weight, data_t blob_high, data_t blob_low, data_t blob_waves, const std::vector<data_t>& color = {0.2, 1.0, 0.1})
-    {
-        const std::string V23<data_t>::name {"blob"}; 
-
-        const auto blob_factor = (blob_high - blob_low)/2.0;
-
-        const auto r_factor = std::sqrt(point.x * point.x + point.y * point.y);
-        const auto theta = std::atan2(point.x, point.y);
-
-        const auto coeff = weight * r_factor * (blob_low + blob_factor * (std::sin(blob_waves * theta) + 1));
-        point.x = coeff * std::cos(theta);
-        point.y = coeff * std::sin(theta);
-
-        detail::blend_colors(color, point);
-    }    
-    */
 
     //TODO still have tons more to go...
 
@@ -799,39 +815,40 @@ namespace affine_fcns
                 std::vector<data_t> default_color {0.25, 0.25, 1.0};
                 return generate_variant<variant, V0, data_t>(1.0, default_color);
             };
-            flame_maker.register_variant(V0<data_t>::name, fobj);
+            flame_maker.register_product(V0<data_t>::name, fobj);
 
-            flame_maker.register_variant(V1<data_t>::name, [](){return generate_variant<variant, V1, data_t>(1.0);});            
-            flame_maker.register_variant(V2<data_t>::name, [](){return generate_variant<variant, V2, data_t>(1.0);});            
-            flame_maker.register_variant(V3<data_t>::name, [](){return generate_variant<variant, V3, data_t>(1.0);});            
-            flame_maker.register_variant(V4<data_t>::name, [](){return generate_variant<variant, V4, data_t>(1.0);});            
-            flame_maker.register_variant(V5<data_t>::name, [](){return generate_variant<variant, V5, data_t>(1.0);});            
-            flame_maker.register_variant(V6<data_t>::name, [](){return generate_variant<variant, V6, data_t>(1.0);});            
-            flame_maker.register_variant(V7<data_t>::name, [](){return generate_variant<variant, V7, data_t>(1.0);});            
-            flame_maker.register_variant(V8<data_t>::name, [](){return generate_variant<variant, V8, data_t>(1.0);});            
-            flame_maker.register_variant(V9<data_t>::name, [](){return generate_variant<variant, V9, data_t>(1.0);});            
+            flame_maker.register_product(V1<data_t>::name, [](){return generate_variant<variant, V1, data_t>(1.0);});            
+            flame_maker.register_product(V2<data_t>::name, [](){return generate_variant<variant, V2, data_t>(1.0);});            
+            flame_maker.register_product(V3<data_t>::name, [](){return generate_variant<variant, V3, data_t>(1.0);});            
+            flame_maker.register_product(V4<data_t>::name, [](){return generate_variant<variant, V4, data_t>(1.0);});            
+            flame_maker.register_product(V5<data_t>::name, [](){return generate_variant<variant, V5, data_t>(1.0);});            
+            flame_maker.register_product(V6<data_t>::name, [](){return generate_variant<variant, V6, data_t>(1.0);});            
+            flame_maker.register_product(V7<data_t>::name, [](){return generate_variant<variant, V7, data_t>(1.0);});            
+            flame_maker.register_product(V8<data_t>::name, [](){return generate_variant<variant, V8, data_t>(1.0);});            
+            flame_maker.register_product(V9<data_t>::name, [](){return generate_variant<variant, V9, data_t>(1.0);});            
 
-            flame_maker.register_variant(V10<data_t>::name, [](){return generate_variant<variant, V10, data_t>(1.0);});            
-            flame_maker.register_variant(V11<data_t>::name, [](){return generate_variant<variant, V11, data_t>(1.0);});            
-            flame_maker.register_variant(V12<data_t>::name, [](){return generate_variant<variant, V12, data_t>(1.0);});            
-            flame_maker.register_variant(V13<data_t>::name, [](){return generate_variant<variant, V13, data_t>(1.0);});            
-            flame_maker.register_variant(V14<data_t>::name, [](){return generate_variant<variant, V14, data_t>(1.0);});            
-            flame_maker.register_variant(V15<data_t>::name, [](){return generate_variant<variant, V15, data_t>(1.0);});            
-            flame_maker.register_variant(V16<data_t>::name, [](){return generate_variant<variant, V16, data_t>(1.0);});            
-            flame_maker.register_variant(V17<data_t>::name, [](){return generate_variant<variant, V17, data_t>(1.0);});            
-            flame_maker.register_variant(V18<data_t>::name, [](){return generate_variant<variant, V18, data_t>(1.0);});            
-            flame_maker.register_variant(V19<data_t>::name, [](){return generate_variant<variant, V19, data_t>(1.0);});            
+            flame_maker.register_product(V10<data_t>::name, [](){return generate_variant<variant, V10, data_t>(1.0);});            
+            flame_maker.register_product(V11<data_t>::name, [](){return generate_variant<variant, V11, data_t>(1.0);});            
+            flame_maker.register_product(V12<data_t>::name, [](){return generate_variant<variant, V12, data_t>(1.0);});            
+            flame_maker.register_product(V13<data_t>::name, [](){return generate_variant<variant, V13, data_t>(1.0);});            
+            flame_maker.register_product(V14<data_t>::name, [](){return generate_variant<variant, V14, data_t>(1.0);});            
+            flame_maker.register_product(V15<data_t>::name, [](){return generate_variant<variant, V15, data_t>(1.0);});            
+            flame_maker.register_product(V16<data_t>::name, [](){return generate_variant<variant, V16, data_t>(1.0);});            
+            flame_maker.register_product(V17<data_t>::name, [](){return generate_variant<variant, V17, data_t>(1.0);});            
+            flame_maker.register_product(V18<data_t>::name, [](){return generate_variant<variant, V18, data_t>(1.0);});            
+            flame_maker.register_product(V19<data_t>::name, [](){return generate_variant<variant, V19, data_t>(1.0);});            
 
-            flame_maker.register_variant(V20<data_t>::name, [](){return generate_variant<variant, V20, data_t>(1.0);});            
-            flame_maker.register_variant(V21<data_t>::name, [](){return generate_variant<variant, V21, data_t>(1.0);});            
-            flame_maker.register_variant(V22<data_t>::name, [](){return generate_variant<variant, V22, data_t>(1.0);});            
-            flame_maker.register_variant(V23<data_t>::name, [](){return generate_variant<variant, V23, data_t>(1.0);});            
-            flame_maker.register_variant(V24<data_t>::name, [](){return generate_variant<variant, V24, data_t>(1.0);});            
-            flame_maker.register_variant(V25<data_t>::name, [](){return generate_variant<variant, V25, data_t>(1.0);});            
+            flame_maker.register_product(V20<data_t>::name, [](){return generate_variant<variant, V20, data_t>(1.0);});            
+            flame_maker.register_product(V21<data_t>::name, [](){return generate_variant<variant, V21, data_t>(1.0);});            
+            flame_maker.register_product(V22<data_t>::name, [](){return generate_variant<variant, V22, data_t>(1.0);});            
+            flame_maker.register_product(V23<data_t>::name, [](){return generate_variant<variant, V23, data_t>(1.0);});            
+            flame_maker.register_product(V24<data_t>::name, [](){return generate_variant<variant, V24, data_t>(1.0);});            
+            flame_maker.register_product(V25<data_t>::name, [](){return generate_variant<variant, V25, data_t>(1.0);});            
         }
 
         const static std::vector<std::string> variant_names;
-        flame_factory<affine_fcns::variant<data_t>, std::string, std::function<affine_fcns::variant<data_t>* ()>> flame_maker;
+        typedef Factory<affine_fcns::variant<data_t>, std::string, std::function<affine_fcns::variant<data_t>* ()>> flame_factory;
+        flame_factory flame_maker;        
     };
     template <typename data_t>
     const std::vector<std::string> variant_list<data_t>::variant_names  
@@ -845,8 +862,6 @@ namespace affine_fcns
     };
 
 ////////////////////////////////////////////////////////////////////////////////////////
-
-
 
     template <typename data_t>
     struct invoker
@@ -872,7 +887,7 @@ namespace affine_fcns
             //just for fun -- randomize the parameter lists too. Will want to change this to use the fast_rand 
             // -- apparently this takes ~15% of the TOTAL execution time (according to callgrind)
             static std::uniform_int_distribution<> fcn_dis(0, fcn.size()-1); 
-            auto param_preit = affine_preparameters.find(fcn[fcn_dis(fflame_randutil::get_engine())]);
+            auto param_preit = affine_preparameters.find(fcn[fcn_dis(fflame_util::get_engine())]);
             //auto param_preit = affine_preparameters.find(flame_function);
             if(param_preit != affine_preparameters.end())
                 pt.apply_affine_params(param_preit->second);
@@ -880,7 +895,7 @@ namespace affine_fcns
             flame_function->apply_variant (pt);
 
             //apply the post-processing affine transform parameters
-            auto param_postit = affine_postparameters.find(fcn[fcn_dis(fflame_randutil::get_engine())]);
+            auto param_postit = affine_postparameters.find(fcn[fcn_dis(fflame_util::get_engine())]);
             //auto param_postit = affine_postparameters.find(flame_function);
             if(param_postit != affine_postparameters.end())
                 pt.apply_affine_params(param_postit->second);        
@@ -902,12 +917,12 @@ namespace affine_fcns
                 if(param_preit != affine_preparameters.end())
                 {
                     flame_fcn_params<data_t> affine_params {
-                        dis(fflame_randutil::get_engine()),
-                        dis(fflame_randutil::get_engine()),
-                        dis(fflame_randutil::get_engine()),
-                        dis(fflame_randutil::get_engine()),
-                        dis(fflame_randutil::get_engine()),
-                        dis(fflame_randutil::get_engine())
+                        dis(fflame_util::get_engine()),
+                        dis(fflame_util::get_engine()),
+                        dis(fflame_util::get_engine()),
+                        dis(fflame_util::get_engine()),
+                        dis(fflame_util::get_engine()),
+                        dis(fflame_util::get_engine())
                     };
                     param_preit->second = std::move(affine_params);
                 }
@@ -917,12 +932,12 @@ namespace affine_fcns
                 if(param_postit != affine_postparameters.end())
                 {
                     flame_fcn_params<data_t> affine_params {
-                        dis(fflame_randutil::get_engine()),
-                        dis(fflame_randutil::get_engine()),
-                        dis(fflame_randutil::get_engine()),
-                        dis(fflame_randutil::get_engine()),
-                        dis(fflame_randutil::get_engine()),
-                        dis(fflame_randutil::get_engine())
+                        dis(fflame_util::get_engine()),
+                        dis(fflame_util::get_engine()),
+                        dis(fflame_util::get_engine()),
+                        dis(fflame_util::get_engine()),
+                        dis(fflame_util::get_engine()),
+                        dis(fflame_util::get_engine())
                     };
                     param_postit->second = std::move(affine_params);
                 }
@@ -1138,7 +1153,7 @@ namespace affine_fcns
 
         //omega is "a random variable that's either 0 or pi"
         static std::uniform_int_distribution<> omega_dist(0, 1); 
-        theta += fflame_constants::PI * omega_dist(fflame_randutil::get_engine());
+        theta += fflame_constants::PI * omega_dist(fflame_util::get_engine());
 
         point.x = r_factor * std::cos(theta);
         point.y = r_factor * std::sin(theta);

@@ -1,7 +1,7 @@
 #ifndef FF_IFS_CONSTANTS_HPP
 #define FF_IFS_CONSTANTS_HPP
 
-#include "ff_utils.hpp"
+#include "util/ff_utils.hpp"
 
 #include <random>
 #include <tuple>
@@ -9,6 +9,7 @@
 #include <memory>
 #include <iostream>
 #include <map>
+#include <type_traits>
 
 namespace fflame_constants
 {
@@ -32,35 +33,134 @@ namespace fflame_constants
     constexpr double PI = 3.14159265358979323; 
 }
 
-
+/*
 template <class VariantType,
-	       typename KeyType,
-	       typename VariantCreator> 
+           typename KeyType,
+           typename VariantCreator> 
 class flame_factory
 {
 public:
-	VariantType* create_variant(const KeyType& id)
+    VariantType* create_variant(const KeyType& id)
     {
         auto variant_iter = creator_map.find(id);
-        if(variant_iter != creator_map.end())
+        if(variant_iter != creator_map.end()) {
             return (variant_iter->second)();
+        }
         return nullptr;
     }
 
-	bool register_variant(const KeyType& id, VariantCreator creator)
+    bool register_variant(const KeyType& id, VariantCreator creator)
     {
         return creator_map.insert(std::pair<KeyType, VariantCreator>(id, creator)).second;
     }
 
-	bool unregister_variant(const KeyType& id)
+    bool unregister_variant(const KeyType& id)
     {
         return (creator_map.erase(id) == 1);
     }
 
 private:
-	std::map<KeyType, VariantCreator> creator_map;
+    std::map<KeyType, VariantCreator> creator_map;
 };
+*/
 
+//assume that we won't need to manage any of the resources here (i.e. all data is stack-allocated
+//and/or managed by other entities)
+template <typename pixel_t>
+class flame_frame
+{
+public:
+    using T = pixel_t;
+
+    flame_frame()
+        : rows(0), cols(0), data(nullptr), manage_data(true)
+    {}
+
+    flame_frame(int height, int width)
+        : rows(height), cols(width), manage_data(true)
+    {
+        data = new pixel_t [rows * cols];
+    }
+    flame_frame(int height, int width, const pixel_t& initializer)
+        : rows(height), cols(width), manage_data(true)
+    {
+        data = new pixel_t [rows * cols];
+        if(std::is_pod<pixel_t>::value) {
+            std::fill(data, data + rows * cols, initializer);
+        } else {
+            for (int r = 0; r < rows; ++r) {
+                for (int c = 0; c < cols; ++c) {
+                    data [r * cols + c] = initializer;
+                }
+            }
+        }
+    }
+
+    flame_frame(int height, int width, pixel_t* data_p)
+        : rows(height), cols(width), data(data_p), manage_data(false)
+    {}
+
+
+    flame_frame(const flame_frame& other) 
+        : rows(other.rows), cols(other.cols), data(other.data), manage_data(other.manage_data)
+    {}
+
+    flame_frame(flame_frame&& other)
+        : flame_frame() 
+    {
+        swap(*this, other);
+    }
+
+    flame_frame& operator=(flame_frame other)
+    {
+        swap(*this, other);
+        return *this;
+    }
+
+    ~flame_frame()
+    {
+        if(manage_data) {
+            delete [] data;
+        }
+    }
+
+    inline pixel_t* ptr (const int row)
+    {
+        return data + row * cols;
+    }
+
+    inline const pixel_t* ptr (const int row) const
+    {
+        return data + row * cols;
+    }
+
+    inline pixel_t& at (const int row, const int col)
+    {
+        return *(data + row * cols + col);
+
+    }
+
+    inline const pixel_t& at (const int row, const int col) const
+    {
+        return *(data + row * cols + col);
+    }
+
+    friend void swap(flame_frame& lhs, flame_frame& rhs)
+    {
+        using std::swap; 
+        swap(lhs.rows, rhs.rows); 
+        swap(lhs.cols, rhs.cols);
+        swap(lhs.data, rhs.data);
+        swap(lhs.manage_data, rhs.manage_data);
+    }
+
+    int rows;
+    int cols;
+    pixel_t* data;
+
+private:
+    bool manage_data;
+};
 
 template <typename pixel_t>
 struct histogram_info
@@ -77,10 +177,24 @@ struct histogram_info
         frequency_count = freq_val;
     }
 
+    void update(const histogram_info& other)
+    {
+        color += other.color; 
+        frequency_count += other.frequency_count;
+    }
+
     void update(const pixel_t& px_info, const int freq_info)
     {
         color += px_info; 
         frequency_count += freq_info;
+    }
+
+    void reset()
+    {
+        color[0] = 0;
+        color[1] = 0;
+        color[2] = 0;
+        frequency_count = 0;
     }
 
     pixel_t color;
@@ -135,10 +249,6 @@ struct flame_point
 //thread_local supported on my compiler apparently)
 class flame_thread
 {
-private:    
-    fflame_randutil::fast_rand rand_gen;
-    std::unique_ptr<std::thread> fthread;
-
 public:
     flame_thread(uint64_t seed0, uint64_t seed1)
        : rand_gen(seed0, seed1), fthread(nullptr)
@@ -154,11 +264,10 @@ public:
         fthread = std::move(other.fthread);
 
         //what to do if the current object's thread object is running?
-        other.rand_gen = fflame_randutil::fast_rand(0, 0);
+        other.rand_gen = fflame_util::fast_rand(0, 0);
         other.fthread = nullptr;
     }
     
-
     ~flame_thread()
     {
         //note: it's not a very good idea to do it this way. We would have to interrupt the thread
@@ -172,14 +281,15 @@ public:
     }
 
     template <typename fcn_t, typename ... fcnargs_t>
-    bool do_flame(fcn_t fcn, fcnargs_t&& ... args)
+    std::tuple<bool, std::thread::id> do_flame(fcn_t fcn, fcnargs_t&& ... args)
     {
         //check if the thread already exists
-        if(fthread)
-            return false;
+        if(fthread) {
+            return std::make_tuple(false, fthread->get_id());
+        }
 
         fthread = std::unique_ptr<std::thread>(new std::thread(fcn, std::forward<fcnargs_t>(args)..., std::ref(rand_gen)));
-        return (fthread != nullptr);
+        return std::make_tuple((fthread != nullptr), fthread->get_id());
     }
 
     void finish_flame()
@@ -188,6 +298,10 @@ public:
         fthread->join();    
         fthread.reset(nullptr);
     }
+
+private:    
+    fflame_util::fast_rand rand_gen;
+    std::unique_ptr<std::thread> fthread;
 };
 
 #endif
