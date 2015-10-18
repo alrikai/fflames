@@ -28,7 +28,7 @@ int interpolate_frames(const cv::Mat_<pixel_t>& lhs_img, const cv::Mat_<pixel_t>
     auto output_fpath = out_filebasepath;
     output_fpath /= std::to_string(frame_idx++) + ".png";
     const std::string out_filepath = output_fpath.native();
-    std::cout << "saving " << out_filepath << std::endl;
+    //std::cout << "saving " << out_filepath << std::endl;
     cv::imwrite(out_filepath, lhs_img);
 
     cv::Mat_<pixel_t> pixel_diffimg = (rhs_img - lhs_img) / static_cast<double>(num_frames);    
@@ -40,7 +40,7 @@ int interpolate_frames(const cv::Mat_<pixel_t>& lhs_img, const cv::Mat_<pixel_t>
         output_fpath /= std::to_string(frame_idx++) + ".png";
         const std::string out_filepath = output_fpath.native();
         cv::imwrite(out_filepath, working_frame);
-        std::cout << "saving " << out_filepath << std::endl;
+        //std::cout << "saving " << out_filepath << std::endl;
     }
 
     //at this point, working_frame should be 1 step off from rhs_img
@@ -65,8 +65,8 @@ void generate_fractal_flames (const bfs::path output_dir, const int num_working_
     std::uniform_int_distribution<uint8_t> total_variant_rng(0, affine_fcns::variant_list<data_t>::variant_names.size() - 1);
 
     using flame_gen_t = fflame_generator<frame_t, data_t, pixel_t>;
-
-    auto bg_generator = std::unique_ptr<flame_gen_t> (new flame_gen_t(fflame_constants::imheight, fflame_constants::imwidth, 1));
+    const int num_generator_threads = 4;
+    auto bg_generator = std::unique_ptr<flame_gen_t> (new flame_gen_t(fflame_constants::imheight, fflame_constants::imwidth, num_generator_threads));
     //pass in a queue to hold the finished flame frames
     //auto bg_framequeue = std::unique_ptr<EventQueue<frame_t<pixel_t>>>(new EventQueue<frame_t<pixel_t>>(num_images));
 
@@ -90,15 +90,11 @@ void generate_fractal_flames (const bfs::path output_dir, const int num_working_
         }
             
         if(got_frame && fflame_frame) {
-            std::cout << "Writing frames [" << output_index;
+            //std::cout << "Writing frames [" << output_index;
             if(frame_idx > 0) {
                 output_index = interpolate_frames(*(prev_image.get()), *(fflame_frame.get()), 30, output_dir, output_index);
-            } else {
-                cv::Mat_<pixel_t> lhs_img (fflame_frame->rows, fflame_frame->cols, fflame_frame->data);
-                cv::imwrite("frame_zero.png", lhs_img);
-                
             }
-            std::cout << ", " << output_index << "]" << std::endl;
+            //std::cout << ", " << output_index << "]" << std::endl;
 
             prev_image.swap(fflame_frame);
         }

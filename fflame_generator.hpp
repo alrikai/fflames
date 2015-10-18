@@ -188,25 +188,23 @@ void fflame_generator<frame_t, data_t, pixel_t>::generate_fflame(fflame_util::fa
     while(fflame_state.load())
     {
         
-auto start_iter_time = std::chrono::high_resolution_clock::now();
+        auto start_iter_time = std::chrono::high_resolution_clock::now();
 
-        //0. check if the generation should pause (i.e. too many frames in queue) --> leave this for after you get it working
-        std::cout << "thread " << std::this_thread::get_id() << " @start -- " << fflame_constants::num_samples/num_workers << std::endl;
-       
-
+        //0. check if the generation should pause (i.e. too many frames in queue) --> leave this for after you get it working 
         //1. start the next flame generation 
         run_fflame<data_t, pixel_t>(flamer.get(), fflame_constants::num_samples/num_workers, fflame_histdata.get(), rand_gen);
  
-auto end_iter_time = std::chrono::high_resolution_clock::now();
-double time_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end_iter_time - start_iter_time).count(); 
-std::cout << "thread " << std::this_thread::get_id() << " @pre-wait -- " << time_elapsed << " ms" << std::endl;      
-start_iter_time = std::chrono::high_resolution_clock::now();
+        auto end_iter_time = std::chrono::high_resolution_clock::now();
+        double time_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end_iter_time - start_iter_time).count(); 
+        std::cout << "thread " << std::this_thread::get_id() << " generation took -- " << time_elapsed << " ms" << std::endl;      
 
-        //2. wait for all the threads to finish the previous round. have 1 thread execute the following steps:
+        //2. wait for all the threads to finish the previous round
         flame_prebarrier.wait();
+
+        //merge the N thread results using the overlord thread
         if(std::this_thread::get_id() == worker_overloard_id)
         {
-            //somewhat unfortunate, but need to have this on the heap to avoid scoping problems
+            //somewhat unfortunate, but need to dynamically allocate to avoid scoping problems
             auto hist_info = std::unique_ptr<std::vector<histogram_info<pixel_t>>>(new std::vector<histogram_info<pixel_t>>(imheight * imwidth));
             fflame_histdata->get_and_reset(*hist_info);
 
@@ -220,20 +218,9 @@ start_iter_time = std::chrono::high_resolution_clock::now();
             flamer->fcn.at(mod_idx).reset(variant_maker.flame_maker.create_product(selected_variant)); 
             flamer->randomize_parameters(-2, 2);
 
+            //there should be no threads waiting at the pre-barrier at this point; the other (non-overlord) threads
+            //should be waiting at the post-barrier 
             flame_prebarrier.reset(num_workers);
-        }
-
-end_iter_time = std::chrono::high_resolution_clock::now();
-time_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end_iter_time - start_iter_time).count(); 
-std::cout << "thread " << std::this_thread::get_id() << " waiting @post barrier -- " << time_elapsed << " ms" << std::endl;      
-
-        flame_postbarrier.wait();
-        
-std::cout << "thread " << std::this_thread::get_id() << " done waiting @post barrier" << std::endl;      
-
-        if(std::this_thread::get_id() == worker_overloard_id) {
-            std::cout << "thread " << std::this_thread::get_id() << " resetting barrier" << std::endl;
-            flame_postbarrier.reset(num_workers);
         }
     }
 }
@@ -252,8 +239,6 @@ void fflame_generator<frame_t, data_t, pixel_t>::render_fflame()
         auto hist_info = fflame_histoqueue.pop(got_histdata);
         if(got_histdata && hist_info)
         {
-            std::cout << "thread " << std::this_thread::get_id() << " @render fflame w/ hist info" << std::endl;
-
             std::unique_ptr<frame_t<pixel_t>> image = std::unique_ptr<frame_t<pixel_t>>(new frame_t<pixel_t>(fflame_constants::imheight, fflame_constants::imwidth));
             std::fill(image->data, image->data + image->rows * image->cols, 0);
 

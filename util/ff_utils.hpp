@@ -107,7 +107,6 @@ public:
 		if(barrier_count <= 0) {
             barrier_cv.notify_all();
 		} else {
-			std::cout << "thread " << std::this_thread::get_id() << " waiting @barrier" << std::endl;
             barrier_cv.wait(b_lock, [this]()
             {
                 return barrier_count <= 0;
