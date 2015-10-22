@@ -10,10 +10,6 @@ add_definitions(-DBOOST_LOG_DYN_LINK)
 add_definitions(-DBOOST_FILESYSTEM_VERSION=3 -DBOOST_FILESYSTEM_NO_DEPRECATED)
 find_package(Boost REQUIRED COMPONENTS ${boost_components})
 include_directories(${Boost_INCLUDE_DIRS})
-#link_directories(${Boost_LIBRARIES_DIRS})
-
-#set(FFSRC fractal_flame.cpp)
-#add_library(fflame SHARED ${FFSRC})
 
 set(FlameSRC main.cpp)
 add_executable(fflame_gen ${FlameSRC})

@@ -1,3 +1,11 @@
+/* render_flame.hpp -- part of the fractal flames implementation 
+ *
+ * Copyright (C) 2015 Alrik Firl 
+ *
+ * This software may be modified and distributed under the terms
+ * of the MIT license.  See the LICENSE file for details.
+ */
+
 #ifndef FF_RENDER_FLAME_HPP
 #define FF_RENDER_FLAME_HPP
 	
