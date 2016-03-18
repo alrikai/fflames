@@ -179,8 +179,15 @@ void fflame_generator<frame_t, data_t, pixel_t>:: start_fflame_generation()
         }
     }
     
+        
+    auto start_render_time = std::chrono::high_resolution_clock::now();
+
     //prepare the image and push the image to the shared queue
     render_fflame();
+
+    auto end_render_time = std::chrono::high_resolution_clock::now();
+    double time_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end_render_time - start_render_time).count(); 
+    std::cout << "rendering took -- " << time_elapsed << " ms" << std::endl;      
 }
 
 template <typename pixel_t>
@@ -195,7 +202,6 @@ void fflame_generator<frame_t, data_t, pixel_t>::generate_fflame(fflame_util::fa
 {
     while(fflame_state.load())
     {
-        
         auto start_iter_time = std::chrono::high_resolution_clock::now();
 
         //0. check if the generation should pause (i.e. too many frames in queue) --> leave this for after you get it working 
@@ -242,7 +248,6 @@ void fflame_generator<frame_t, data_t, pixel_t>::render_fflame()
 
     while(fflame_state.load())
     {
-
         //1. get the histogram
         auto hist_info = fflame_histoqueue.pop(got_histdata);
         if(got_histdata && hist_info)

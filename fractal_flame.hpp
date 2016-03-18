@@ -37,7 +37,21 @@ public:
     //NOTE: no copy-constructor, since std::mutex is move-only
     fflame_data(const fflame_data<data_t, pixel_t>&) = delete;
     fflame_data<data_t, pixel_t>& operator= (const fflame_data<data_t, pixel_t>&) = delete;
+  
+    template <class hist_container_t>
+    void apply_fflame_run(hist_container_t&& hist_data)
+    {
+        std::lock_guard<std::mutex> lk (histdata_mtx);
 
+        for (int row = 0; row < hist_height; row++) {
+            for (int col = 0; col < hist_width; col++) {
+                int idx = row * hist_width + col;
+                fflame_hist[idx].update(hist_data[idx]);    
+            }
+        }
+    }
+    
+/*
     void apply_fflame_run(std::map<std::pair<size_t, size_t>, histogram_info<pixel_t>>&& hist_data)
     {
         std::lock_guard<std::mutex> lk (histdata_mtx);
@@ -49,6 +63,7 @@ public:
             hist_it++;
         }
     }
+*/    
 
     void get_and_reset(hist_t& hist_data)
     {
@@ -72,12 +87,14 @@ private:
     //cv::Mat_<histogram_inf>>pixel_t>> fflame_hist;
 };
 
-
-
 template <typename data_t, typename pixel_t>
 void run_fflame(const affine_fcns::invoker<data_t>* const flamer, const int num_points, fflame_data<data_t, pixel_t>* fdata, fflame_util::fast_rand& f_rand)
 {
-    std::map<std::pair<size_t, size_t>, histogram_info<pixel_t>> hist_data;
+    //std::map<std::pair<size_t, size_t>, histogram_info<pixel_t>> hist_data;
+
+    //NOTE: using an std::array is technically possible here, but if the image size gets large then we'll have stack issues
+    //std::array<histogram_info<pixel_t>, fflame_constants::imheight * fflame_constants::imwidth> hist_data;
+    std::vector<histogram_info<pixel_t>> hist_data (fflame_constants::imheight * fflame_constants::imwidth);
 
     //for generating the random point to use
     std::uniform_real_distribution<> dis(fflame_constants::min_pt, fflame_constants::max_pt);
@@ -106,12 +123,17 @@ void run_fflame(const affine_fcns::invoker<data_t>* const flamer, const int num_
                     auto hist_idx = std::make_pair(row_idx, col_idx);
                     pixel_t color (flame_pt.color[0], flame_pt.color[1], flame_pt.color[2]);
                     
+                    hist_data[row_idx*fflame_constants::imwidth+col_idx].update(color, 1);
+
+                    /*
                     //update the map -- add to an existing entry or generate a new one
                     auto bin_entry = hist_data.find(hist_idx); 
-                    if(bin_entry != hist_data.end())
+                    if(bin_entry != hist_data.end()) {
                         bin_entry->second.update(color, 1);
-                    else
+                    } else {
                         hist_data.insert(std::make_pair(hist_idx,histogram_info<pixel_t>(color, 1)));
+                    }
+                    */
                 }
             }
         }

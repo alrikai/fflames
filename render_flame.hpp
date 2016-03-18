@@ -70,8 +70,9 @@ void render_fractal_flame(frame_t<pixel_t>* image, std::unique_ptr<std::vector<h
             if(kernel_width > 1)
             {
                 //make sure we have an odd kernel size
-                if(kernel_width % 2 == 0)
+                if(kernel_width % 2 == 0) {
                     kernel_width++;
+                }
 
                 //add the kernel matrix if it doesnt already exist
                 auto kernel_it = density_est_kernels.find(kernel_width);
