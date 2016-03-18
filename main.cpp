@@ -112,19 +112,8 @@ void generate_fractal_flames (const bfs::path output_dir, const int num_working_
 }
 
 //------------------------------------------------------------------------------------------------------
-
-inline void print_ffhelp()
-{
-    std::cout << "program options are: " << std::endl;
-    std::cout << "output flame-image path (output-path,o) " << std::endl;
-    std::cout << "number of working variants (num-variants,n)" << std::endl;
-    std::cout << "total number of frames to generate (total-frames,t)" << std::endl;
-}
-
-
 template <typename pixel_t>
 using frame_t = flame_frame<pixel_t>; //cv::Mat_<pixel_t>;
-
 
 int main(int argc, char* argv[])
 {
@@ -144,28 +133,28 @@ int main(int argc, char* argv[])
     int num_working_variants, num_images;
 
     if(vm.count("help")){
-    print_ffhelp();
+        std::cout << bpo_desc << std::endl;
         return 0;
     }
 
     if(vm.count("output-path")){
-    output_path = vm["output-path"].as<std::string>();
+        output_path = vm["output-path"].as<std::string>();
     } else {
-    print_ffhelp();
+        std::cout << bpo_desc << std::endl;
         return 0;
     }
 
     if(vm.count("num-variants")){
-    num_working_variants = vm["num-variants"].as<int>();
+        num_working_variants = vm["num-variants"].as<int>();
     } else {
-    print_ffhelp();
+        std::cout << bpo_desc << std::endl;
         return 0;
     }
 
     if(vm.count("total-frames")){
-    num_images = vm["total-frames"].as<int>();
+        num_images = vm["total-frames"].as<int>();
     } else {
-    print_ffhelp();
+        std::cout << bpo_desc << std::endl;
         return 0;
     }
 
