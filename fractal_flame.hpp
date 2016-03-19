@@ -51,20 +51,6 @@ public:
         }
     }
     
-/*
-    void apply_fflame_run(std::map<std::pair<size_t, size_t>, histogram_info<pixel_t>>&& hist_data)
-    {
-        std::lock_guard<std::mutex> lk (histdata_mtx);
-        auto hist_it = hist_data.begin();
-        while(hist_it != hist_data.end())
-        {
-            int idx = hist_it->first.first * hist_width + hist_it->first.second;
-            fflame_hist[idx].update(hist_it->second);
-            hist_it++;
-        }
-    }
-*/    
-
     void get_and_reset(hist_t& hist_data)
     {
         std::lock_guard<std::mutex> lk (histdata_mtx);
@@ -90,8 +76,6 @@ private:
 template <typename data_t, typename pixel_t>
 void run_fflame(const affine_fcns::invoker<data_t>* const flamer, const int num_points, fflame_data<data_t, pixel_t>* fdata, fflame_util::fast_rand& f_rand)
 {
-    //std::map<std::pair<size_t, size_t>, histogram_info<pixel_t>> hist_data;
-
     //NOTE: using an std::array is technically possible here, but if the image size gets large then we'll have stack issues
     //std::array<histogram_info<pixel_t>, fflame_constants::imheight * fflame_constants::imwidth> hist_data;
     std::vector<histogram_info<pixel_t>> hist_data (fflame_constants::imheight * fflame_constants::imwidth);
@@ -99,6 +83,10 @@ void run_fflame(const affine_fcns::invoker<data_t>* const flamer, const int num_
     //for generating the random point to use
     std::uniform_real_distribution<> dis(fflame_constants::min_pt, fflame_constants::max_pt);
     auto fflame_rngengine = fflame_util::get_engine();
+
+    const data_t cosidx_rotate_factor = std::cos(2 * fflame_constants::PI);
+    const data_t sinidx_rotate_factor = std::sin(2 * fflame_constants::PI);
+    const auto fflame_point_range = fflame_constants::max_pt - fflame_constants::min_pt;
 
     for (int sample = 0; sample < num_points; ++sample)
     {
@@ -113,27 +101,16 @@ void run_fflame(const affine_fcns::invoker<data_t>* const flamer, const int num_
             if(i > 20)
             {
                 //store the intermediate result to the histogram datastructures
-                data_t rotated_x = flame_pt.x * std::cos(2 * fflame_constants::PI) - flame_pt.y * std::sin(2 * fflame_constants::PI);
-                data_t rotated_y = flame_pt.x * std::sin(2 * fflame_constants::PI) + flame_pt.y * std::cos(2 * fflame_constants::PI);
-                long col_idx = std::lround(fflame_constants::imwidth - ((fflame_constants::max_pt - rotated_x) / (fflame_constants::max_pt - fflame_constants::min_pt)) * fflame_constants::imwidth);
-                long row_idx = std::lround(fflame_constants::imheight - ((fflame_constants::max_pt - rotated_y) / (fflame_constants::max_pt - fflame_constants::min_pt)) * fflame_constants::imheight);
+                data_t rotated_x = flame_pt.x * cosidx_rotate_factor - flame_pt.y * sinidx_rotate_factor;
+                data_t rotated_y = flame_pt.x * sinidx_rotate_factor + flame_pt.y * cosidx_rotate_factor;
+                long col_idx = std::lround(fflame_constants::imwidth - ((fflame_constants::max_pt - rotated_x) / fflame_point_range) * fflame_constants::imwidth);
+                long row_idx = std::lround(fflame_constants::imheight - ((fflame_constants::max_pt - rotated_y) / fflame_point_range) * fflame_constants::imheight);
 
                 //if the point (at image dimensions) is within bounds, add it to the histogram 
                 if((col_idx >= 0 && col_idx < fflame_constants::imwidth) && (row_idx >= 0 && row_idx < fflame_constants::imheight))
                 {
                     pixel_t color (flame_pt.color[0], flame_pt.color[1], flame_pt.color[2]);
                     hist_data[row_idx*fflame_constants::imwidth+col_idx].update(color, 1);
-
-                    /*
-                    //update the map -- add to an existing entry or generate a new one
-                    auto hist_idx = std::make_pair(row_idx, col_idx);
-                    auto bin_entry = hist_data.find(hist_idx); 
-                    if(bin_entry != hist_data.end()) {
-                        bin_entry->second.update(color, 1);
-                    } else {
-                        hist_data.insert(std::make_pair(hist_idx,histogram_info<pixel_t>(color, 1)));
-                    }
-                    */
                 }
             }
         }

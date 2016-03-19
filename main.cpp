@@ -68,12 +68,13 @@ int interpolate_frames(const flame_frame<pixel_t>& lhs_frame, const flame_frame<
 template <template <class> class frame_t, typename pixel_t, typename data_t>
 void generate_fractal_flames (const bfs::path output_dir, const int num_working_variants, const int num_images)
 {
+/*
     //for seeding the flame thread rng 
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<uint8_t> working_variant_rng(0, num_working_variants-1);
     std::uniform_int_distribution<uint8_t> total_variant_rng(0, affine_fcns::variant_list<data_t>::variant_names.size() - 1);
-
+*/
     using flame_gen_t = fflame_generator<frame_t, data_t, pixel_t>;
     const int num_generator_threads = 4;
     auto bg_generator = std::unique_ptr<flame_gen_t> (new flame_gen_t(fflame_constants::imheight, fflame_constants::imwidth, num_generator_threads));

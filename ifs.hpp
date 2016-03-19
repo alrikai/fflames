@@ -875,9 +875,9 @@ namespace affine_fcns
     template <typename data_t>
     struct invoker
     {
-        using flame_fcn = std::shared_ptr<variant<data_t>>; 
+        using flame_fcn = std::unique_ptr<variant<data_t>>; 
         invoker(std::vector<flame_fcn>&& fcn_default)
-            : fcn(std::move(fcn_default))
+            : fcn(std::move(fcn_default)), variant_rng(0,0)
         {
             flame_fcn_params<data_t> default_p {0, 0, 0, 0, 0, 0};
 
@@ -885,48 +885,27 @@ namespace affine_fcns
                 affine_preparameters.push_back(default_p);
                 affine_postparameters.push_back(default_p);    
             }
-            /*
-            for (auto f : fcn)
-            {
-                affine_preparameters.insert(std::make_pair(f, default_p));
-                affine_postparameters.insert(std::make_pair(f, default_p));    
-            }
-            */
+
+            //seed the fast RNG
+            std::mt19937 variant_gen;
+            std::uniform_int_distribution<uint64_t> variant_dist (0, std::numeric_limits<uint64_t>::max());         
+            variant_rng.reseed(variant_dist(variant_gen), variant_dist(variant_gen));
         }
 
         void invoke(const size_t fcn_idx, flame_point<data_t>& pt) const
         {
             //apply the selected function's parameters to the input point
             assert(fcn_idx < fcn.size());
-            auto flame_function = fcn[fcn_idx];
-            auto fflame_randeng = fflame_util::get_engine();
-
-            //just for fun -- randomize the parameter lists too. Will want to change this to use the fast_rand 
-            // -- apparently this takes ~15% of the TOTAL execution time (according to callgrind)
-            static std::uniform_int_distribution<> fcn_dis(0, fcn.size()-1); 
-            int pre_fcn_idx = fcn_dis(fflame_randeng);
+            //just for fun -- randomize the parameter lists too.
+            int pre_fcn_idx = variant_rng.xorshift128plus(fcn.size()); 
             pt.apply_affine_params(affine_preparameters[pre_fcn_idx]);
 
-            /*
-            auto param_preit = affine_preparameters.find(fcn[fcn_dis(fflame_randeng)]);
-            //auto param_preit = affine_preparameters.find(flame_function);
-            if(param_preit != affine_preparameters.end())
-                pt.apply_affine_params(param_preit->second);
-            */
-
-            flame_function->apply_variant (pt);
+            fcn[fcn_idx]->apply_variant (pt);
 
             //apply the post-processing affine transform parameters
-
-            int post_fcn_idx = fcn_dis(fflame_randeng);
+            //int post_fcn_idx = fcn_dis(fflame_randeng);
+            int post_fcn_idx = variant_rng.xorshift128plus(fcn.size()); 
             pt.apply_affine_params(affine_postparameters[post_fcn_idx]);
-
-            /*
-            auto param_postit = affine_postparameters.find(fcn[fcn_dis(fflame_randeng)]);
-            //auto param_postit = affine_postparameters.find(flame_function);
-            if(param_postit != affine_postparameters.end())
-                pt.apply_affine_params(param_postit->second);        
-            */
         }
 
         //assign random values between [min_param, max_param) to all affine pre- and post-process parameters
@@ -948,57 +927,25 @@ namespace affine_fcns
                 };
                 affine_preparameters [fcn_idx] = std::move(affine_preparams);
 
-                /*
-                auto param_preit = affine_preparameters.find(fcn[fcn_idx]);
-                if(param_preit != affine_preparameters.end())
-                {
-                    flame_fcn_params<data_t> affine_params {
-                        dis(fflame_util::get_engine()),
-                        dis(fflame_util::get_engine()),
-                        dis(fflame_util::get_engine()),
-                        dis(fflame_util::get_engine()),
-                        dis(fflame_util::get_engine()),
-                        dis(fflame_util::get_engine())
-                    };
-                    param_preit->second = std::move(affine_params);
-                }
-                */
-
                 //make the post-parameters
                 flame_fcn_params<data_t> affine_postparams {
                     dis(rng_engine), dis(rng_engine), dis(rng_engine),
                     dis(rng_engine), dis(rng_engine), dis(rng_engine)
                 };
                 affine_postparameters [fcn_idx] = std::move(affine_postparams);
-
-                /*
-                auto param_postit = affine_postparameters.find(fcn[fcn_idx]);
-                if(param_postit != affine_postparameters.end())
-                {
-                    flame_fcn_params<data_t> affine_params {
-                        dis(fflame_util::get_engine()),
-                        dis(fflame_util::get_engine()),
-                        dis(fflame_util::get_engine()),
-                        dis(fflame_util::get_engine()),
-                        dis(fflame_util::get_engine()),
-                        dis(fflame_util::get_engine())
-                    };
-                    param_postit->second = std::move(affine_params);
-                }
-                */                
             }
         }
         
         std::vector<flame_fcn> fcn;
-
         std::map<std::string, flame_fcn> fcn_finder;
         std::vector<data_t> fcn_probabilities;
 
         std::vector<flame_fcn_params<data_t>> affine_preparameters;
         std::vector<flame_fcn_params<data_t>> affine_postparameters;
 
-        //std::map<flame_fcn, flame_fcn_params<data_t>> affine_preparameters;
-        //std::map<flame_fcn, flame_fcn_params<data_t>> affine_postparameters;
+        //mutable since we want to use it in our const functions, but its rng generation
+        //mutates the internal fast_rand state. 
+        mutable fflame_util::fast_rand variant_rng;
     };
 }
 

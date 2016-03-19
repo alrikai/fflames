@@ -40,12 +40,12 @@ void render_fractal_flame(frame_t<pixel_t>* image, std::unique_ptr<std::vector<h
     //we need to take both dimensions into account
     for (int im_row = 0; im_row < fflame_constants::imheight; ++im_row)
     {
-        int hist_row = im_row*rowpx_factor;     
+        //int hist_row = im_row*rowpx_factor;     
         for (int im_col = 0; im_col < fflame_constants::imwidth; ++im_col)
         {
             data_t freq_avg = 0;
             pixel_t color_avg = 0;
-            int hist_col = im_col*colpx_factor;    
+            //int hist_col = im_col*colpx_factor;    
             for (int supersample_row = 0; supersample_row < rowpx_factor; ++supersample_row)
             {
                 for (int supersample_col = 0; supersample_col < colpx_factor; ++supersample_col)

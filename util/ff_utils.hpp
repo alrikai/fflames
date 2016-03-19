@@ -33,6 +33,12 @@ struct fast_rand
         : s{seed0, seed1}
     {}
 
+    void reseed(uint64_t seed0, uint64_t seed1)
+    {
+        s[0] = seed0;
+        s[1] = seed1;
+    }
+
     uint64_t xorshift128plus(uint64_t max_val) {
         uint64_t s1 = s[ 0 ];
         const uint64_t s0 = s[ 1 ];
