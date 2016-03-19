@@ -163,6 +163,7 @@ void fflame_generator<frame_t, data_t, pixel_t>:: start_fflame_generation()
     //spawn the worker threads
     for (int th_idx = 0; th_idx < num_workers; ++th_idx)
     {
+        //seeds the flame thread's fast random number generator
         fflame_workers.emplace_back(new flame_thread(flame_dist(flame_gen), flame_dist(flame_gen)));
         //this step is the one that actually spawns the thread
         bool flame_run;
@@ -229,6 +230,13 @@ void fflame_generator<frame_t, data_t, pixel_t>::generate_fflame(fflame_util::fa
             auto selected_variant = affine_fcns::variant_list<data_t>::variant_names[total_variant_rng(flame_gen)];
             //replace a random variant (that's not the linear variant)
             int mod_idx = total_variant_rng(flame_gen) % num_working_variants;
+
+            /*
+            auto selected_variant = affine_fcns::variant_list<data_t>::variant_names[4];
+            static int mod_index_count = 0;
+            int mod_idx = (mod_index_count++) % num_working_variants;
+            */
+
             flamer->fcn.at(mod_idx).reset(variant_maker.flame_maker.create_product(selected_variant)); 
             flamer->randomize_parameters(-2, 2);
 

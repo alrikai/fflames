@@ -98,10 +98,11 @@ void run_fflame(const affine_fcns::invoker<data_t>* const flamer, const int num_
 
     //for generating the random point to use
     std::uniform_real_distribution<> dis(fflame_constants::min_pt, fflame_constants::max_pt);
+    auto fflame_rngengine = fflame_util::get_engine();
 
     for (int sample = 0; sample < num_points; ++sample)
     {
-        flame_point<data_t> flame_pt (dis(fflame_util::get_engine()), dis(fflame_util::get_engine()));
+        flame_point<data_t> flame_pt (dis(fflame_rngengine), dis(fflame_rngengine));
         for (int i = 0; i < fflame_constants::max_iter; ++i)
         {
             //NOTE: if we have per-function probability weights, would have to use them here to select the function
@@ -117,16 +118,15 @@ void run_fflame(const affine_fcns::invoker<data_t>* const flamer, const int num_
                 long col_idx = std::lround(fflame_constants::imwidth - ((fflame_constants::max_pt - rotated_x) / (fflame_constants::max_pt - fflame_constants::min_pt)) * fflame_constants::imwidth);
                 long row_idx = std::lround(fflame_constants::imheight - ((fflame_constants::max_pt - rotated_y) / (fflame_constants::max_pt - fflame_constants::min_pt)) * fflame_constants::imheight);
 
-                //if the point (at image dimensions) is within bounds, add 
+                //if the point (at image dimensions) is within bounds, add it to the histogram 
                 if((col_idx >= 0 && col_idx < fflame_constants::imwidth) && (row_idx >= 0 && row_idx < fflame_constants::imheight))
                 {
-                    auto hist_idx = std::make_pair(row_idx, col_idx);
                     pixel_t color (flame_pt.color[0], flame_pt.color[1], flame_pt.color[2]);
-                    
                     hist_data[row_idx*fflame_constants::imwidth+col_idx].update(color, 1);
 
                     /*
                     //update the map -- add to an existing entry or generate a new one
+                    auto hist_idx = std::make_pair(row_idx, col_idx);
                     auto bin_entry = hist_data.find(hist_idx); 
                     if(bin_entry != hist_data.end()) {
                         bin_entry->second.update(color, 1);
