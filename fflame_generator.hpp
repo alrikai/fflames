@@ -63,8 +63,9 @@ public:
     void start_generation()
     {
         //if already started, don't try to start again
-        if(fflame_state.load())
+        if(fflame_state.load()) {
             return;
+        }
 
         fflame_state.store(true);    
         fflame_th = std::unique_ptr<std::thread> (new std::thread(&fflame_generator::start_fflame_generation, this)); 
@@ -75,8 +76,9 @@ public:
         if(fflame_state.load())
         {
             fflame_state.store(false);
-            for (int th_idx = 0; th_idx < fflame_workers.size(); ++th_idx)
+            for (int th_idx = 0; th_idx < fflame_workers.size(); ++th_idx){
                 fflame_workers.at(th_idx)->finish_flame();
+            }
             fflame_th->join();
         }
     }
@@ -92,7 +94,11 @@ private:
     {
         //std::vector<std::shared_ptr<affine_fcns::variant<data_t>>> working_variants(num_working_variants); 
         std::vector<std::unique_ptr<affine_fcns::variant<data_t>>> working_variants; 
-        for (int i = 0; i < num_working_variants; ++i) 
+        
+        //NOTE: we always want to have the linear variant (variant #0)
+        auto linear_variant_id = affine_fcns::variant_list<data_t>::variant_names[0];
+        working_variants.emplace_back(std::unique_ptr<affine_fcns::variant<data_t>>(variant_maker.flame_maker.create_product(linear_variant_id)));
+        for (int i = 0; i < num_working_variants - 1; ++i) 
         {
             int variant_idx = total_variant_rng(flame_gen);
             auto selected_variant = affine_fcns::variant_list<data_t>::variant_names[variant_idx];
@@ -112,7 +118,7 @@ private:
     //the number of variants to have active
     //static constexpr uint8_t num_working_variants = 5;
     uint8_t num_working_variants;
-    std::thread::id worker_overloard_id;
+    std::thread::id worker_overlord_id;
 
     //pause generation if above the max, resume if paused and below the min
     static constexpr size_t max_image_thresh = 25;
@@ -182,7 +188,7 @@ void fflame_generator<frame_t, data_t, pixel_t>:: start_fflame_generation()
         }
 
         if(th_idx == 0) {
-            worker_overloard_id = tid;
+            worker_overlord_id = tid;
         }
     }
     
@@ -223,7 +229,7 @@ void fflame_generator<frame_t, data_t, pixel_t>::generate_fflame(fflame_util::fa
         flame_prebarrier.wait();
 
         //merge the N thread results using the overlord thread
-        if(std::this_thread::get_id() == worker_overloard_id)
+        if(std::this_thread::get_id() == worker_overlord_id)
         {
             //somewhat unfortunate, but need to dynamically allocate to avoid scoping problems
             auto hist_info = std::unique_ptr<std::vector<histogram_info<pixel_t>>>(new std::vector<histogram_info<pixel_t>>(imheight * imwidth));
@@ -233,15 +239,11 @@ void fflame_generator<frame_t, data_t, pixel_t>::generate_fflame(fflame_util::fa
             fflame_histoqueue.push(std::move(hist_info));
 
             //4. mutate the variants
+            //NOTE: I can/should do some changes here -- 
+            //  2. don't duplicate already selected variants 
             auto selected_variant = affine_fcns::variant_list<data_t>::variant_names[total_variant_rng(flame_gen)];
             //replace a random variant (that's not the linear variant)
-            int mod_idx = total_variant_rng(flame_gen) % num_working_variants;
-
-            /*
-            auto selected_variant = affine_fcns::variant_list<data_t>::variant_names[4];
-            static int mod_index_count = 0;
-            int mod_idx = (mod_index_count++) % num_working_variants;
-            */
+            int mod_idx = total_variant_rng(flame_gen) % (num_working_variants-1) + 1;
 
             flamer->fcn.at(mod_idx).reset(variant_maker.flame_maker.create_product(selected_variant)); 
             flamer->randomize_parameters(-2, 2);

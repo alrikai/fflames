@@ -107,6 +107,8 @@ void generate_fractal_flames (const bfs::path output_dir, const int num_working_
             prev_image.swap(fflame_frame);
         }
     }
+
+    bg_generator->stop_generation();
 }
 
 //------------------------------------------------------------------------------------------------------

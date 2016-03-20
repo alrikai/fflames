@@ -283,7 +283,7 @@ public:
         //but not in any other
         if(fthread)
         {
-            std::cout << "Finishing thread " << fthread->get_id() << std::endl;
+            std::cout << "DTOR Finishing thread " << fthread->get_id() << std::endl;
             fthread->join();
         }
     }
