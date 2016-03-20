@@ -34,8 +34,8 @@ class fflame_generator
 {
 public:
     //NOTE: can (try to) get a reproducable sequence by not initializing flame_gen(flame_rd())? 
-    fflame_generator (const int imheight, const int imwidth, const int num_workers = std::thread::hardware_concurrency())
-        : num_workers(num_workers), imheight(imheight), imwidth(imwidth), fflame_histoqueue(100, 30),  
+    fflame_generator (const int imheight, const int imwidth, const int num_variants, const int num_workers = std::thread::hardware_concurrency())
+        : num_workers(num_workers), imheight(imheight), imwidth(imwidth), fflame_histoqueue(100, 30), num_working_variants (num_variants),
          flame_prebarrier(num_workers), flame_postbarrier(num_workers), fflame_th(nullptr), fflame_histdata(nullptr),
          flame_gen(flame_rd()), total_variant_rng (0, affine_fcns::variant_list<data_t>::variant_names.size()-1) 
     {
@@ -110,7 +110,8 @@ private:
     void render_fflame();
 
     //the number of variants to have active
-    static constexpr uint8_t num_working_variants = 5;
+    //static constexpr uint8_t num_working_variants = 5;
+    uint8_t num_working_variants;
     std::thread::id worker_overloard_id;
 
     //pause generation if above the max, resume if paused and below the min
