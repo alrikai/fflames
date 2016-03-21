@@ -40,7 +40,7 @@ int interpolate_frames(const cv::Mat_<pixel_t>& lhs_img, const cv::Mat_<pixel_t>
     const std::string out_filepath = output_fpath.native();
 
     {
-        //NOTE: we'll 'lose' the last frame generated in this manner?
+    //NOTE: we'll 'lose' the last frame generated in this manner?
     auto output_keyframe_fpath = out_filebasepath;
     output_keyframe_fpath /= "baseframe_" + std::to_string(frame_idx++) + ".png";
     const std::string out_keyframe_filepath = output_keyframe_fpath.native();
@@ -71,12 +71,13 @@ int interpolate_frames(const flame_frame<pixel_t>& lhs_frame, const flame_frame<
 {
     cv::Mat_<pixel_t> lhs_img (lhs_frame.rows, lhs_frame.cols, lhs_frame.data);
     cv::Mat_<pixel_t> rhs_img (rhs_frame.rows, rhs_frame.cols, rhs_frame.data);
-
     return interpolate_frames (lhs_img, rhs_img, num_frames, out_filebasepath, frame_idx);
 }
 
+
+
 template <template <class> class frame_t, typename pixel_t, typename data_t>
-void generate_fractal_flames (const bfs::path output_dir, const int num_working_variants, const int num_images)
+void generate_fractal_flames (const bfs::path output_dir, const int num_working_variants, const int num_images, const bool do_interpolation = true)
 {
     using flame_gen_t = fflame_generator<frame_t, data_t, pixel_t>;
     const int num_generator_threads = 4;
@@ -101,10 +102,20 @@ void generate_fractal_flames (const bfs::path output_dir, const int num_working_
         }
             
         if(got_frame && fflame_frame) {
-            if(frame_idx > 0) {
-                output_index = interpolate_frames(*(prev_image.get()), *(fflame_frame.get()), 30, output_dir, output_index);
+            //save the frames out, in whatever configuration is specified
+            if(do_interpolation) {
+                if(frame_idx > 0) {
+                    output_index = interpolate_frames(*(prev_image.get()), *(fflame_frame.get()), 30, output_dir, output_index);
+                }
+                prev_image.swap(fflame_frame);
+            } else {
+                cv::Mat_<pixel_t> keyframe_img (fflame_frame->rows, fflame_frame->cols, fflame_frame->data);
+                //NOTE: we'll 'lose' the last frame generated in this manner?
+                auto output_keyframe_fpath = output_dir;
+                output_keyframe_fpath /= "baseframe_" + std::to_string(frame_idx) + ".png";
+                const std::string out_keyframe_filepath = output_keyframe_fpath.native();
+                cv::imwrite(out_keyframe_filepath, keyframe_img);
             }
-            prev_image.swap(fflame_frame);
         }
     }
 
@@ -123,14 +134,15 @@ int main(int argc, char* argv[])
         ("help,h", "Print help message")
         ("output-path,o", bpo::value<std::string>(), "output flame-image path")
         ("num-variants,n", bpo::value<int>(), "number of working variants")
-        ("total-frames,t", bpo::value<int>(), "total number of frames to generate");
+        ("total-frames,t", bpo::value<int>(), "total number of keyframes to generate")
+        ("do-interpolation,i", bpo::value<int>(), "flag for writing out interpolated frames between keyframes (1: yes, 0: no)");
 
     bpo::variables_map vm;
     bpo::store(bpo::command_line_parser(argc, argv).options(bpo_desc).run(), vm);
     bpo::notify(vm);
 
     std::string output_path;
-    int num_working_variants, num_images;
+    int num_working_variants, num_images, do_interpolation;
 
     if(vm.count("help")){
         std::cout << bpo_desc << std::endl;
@@ -158,6 +170,13 @@ int main(int argc, char* argv[])
         return 0;
     }
 
+    if(vm.count("do-interpolation")){
+        do_interpolation = vm["do-interpolation"].as<int>();
+    } else {
+        std::cout << bpo_desc << std::endl;
+        return 0;
+    }
+
     //check the output directory path (if it doesn't exist, create it)
     bfs::path output_dir(output_path);
     if (!(bfs::exists(output_dir) && bfs::is_directory(output_dir))) {
@@ -170,8 +189,8 @@ int main(int argc, char* argv[])
     using data_t = double;
     using pixel_t = cv::Vec<data_t, 3>;  
 
-    generate_fractal_flames<frame_t, pixel_t, data_t> (output_dir, num_working_variants, num_images);
-
+    bool do_interpolation_flag = do_interpolation != 0;
+    generate_fractal_flames<frame_t, pixel_t, data_t> (output_dir, num_working_variants, num_images, do_interpolation_flag);
 
     return 0;
 }

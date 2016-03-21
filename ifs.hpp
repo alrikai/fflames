@@ -916,7 +916,7 @@ namespace affine_fcns
             fcn_probabilities.resize(fcn.size());
             std::fill(fcn_probabilities.begin(), fcn_probabilities.end(), probability_weights);
 
-            std::uniform_real_distribution<> dis(min_param, max_param);
+            std::uniform_real_distribution<data_t> dis(min_param, max_param);
             for (size_t fcn_idx = 0; fcn_idx < fcn.size(); ++fcn_idx)
             {
                 //make the pre-parameters
