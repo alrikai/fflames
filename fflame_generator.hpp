@@ -245,6 +245,8 @@ void fflame_generator<frame_t, data_t, pixel_t>::generate_fflame(fflame_util::fa
             //replace a random variant (that's not the linear variant)
             int mod_idx = total_variant_rng(flame_gen) % (num_working_variants-1) + 1;
 
+            std::cout << "mutating variant " << mod_idx << " --> " << selected_variant << std::endl;
+
             flamer->fcn.at(mod_idx).reset(variant_maker.flame_maker.create_product(selected_variant)); 
             flamer->randomize_parameters(-2, 2);
 

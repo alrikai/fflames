@@ -128,6 +128,8 @@ using frame_t = flame_frame<pixel_t>; //cv::Mat_<pixel_t>;
 
 int main(int argc, char* argv[])
 {
+    std::vector<std::string> manual_variant_list; 
+
     namespace bpo = boost::program_options; 
     bpo::options_description bpo_desc("fractal flames options"); 
     bpo_desc.add_options() 
@@ -135,6 +137,7 @@ int main(int argc, char* argv[])
         ("output-path,o", bpo::value<std::string>(), "output flame-image path")
         ("num-variants,n", bpo::value<int>(), "number of working variants")
         ("total-frames,t", bpo::value<int>(), "total number of keyframes to generate")
+        ("variant-list,v", bpo::value<std::vector<std::string>>(&manual_variant_list), "list of variants to use")
         ("do-interpolation,i", bpo::value<int>(), "flag for writing out interpolated frames between keyframes (1: yes, 0: no)");
 
     bpo::variables_map vm;
@@ -175,6 +178,16 @@ int main(int argc, char* argv[])
     } else {
         std::cout << bpo_desc << std::endl;
         return 0;
+    }
+
+    //invoke via something like
+    //./fflame_gen -o ff_frames/ff_v13 -n 10 -t 100 -i 0 -v fisheye -v eyefish -v swirl -v this -v is -v a -v drill
+    //
+    //... where the -v are the manually provided variants, given in sequential order
+    //next we just have to figure out how to pass these in...
+    std::cout << "Given Variant (" << manual_variant_list.size() << ") List: " << std::endl;
+    for (auto var_id : manual_variant_list) {
+        std::cout << var_id << std::endl;
     }
 
     //check the output directory path (if it doesn't exist, create it)
