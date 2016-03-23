@@ -74,22 +74,9 @@ int interpolate_frames(const flame_frame<pixel_t>& lhs_frame, const flame_frame<
     return interpolate_frames (lhs_img, rhs_img, num_frames, out_filebasepath, frame_idx);
 }
 
-
-
-template <template <class> class frame_t, typename pixel_t, typename data_t>
-void generate_fractal_flames (const bfs::path output_dir, const int num_working_variants, const int num_images, const bool do_interpolation = true)
+template <class framequeue_t, template <class> class frame_t, typename pixel_t>
+void run_frame_generation (framequeue_t& bg_framequeue, const bfs::path output_dir, const int num_images, bool do_interpolation)
 {
-    using flame_gen_t = fflame_generator<frame_t, data_t, pixel_t>;
-    const int num_generator_threads = 4;
-    auto bg_generator = std::unique_ptr<flame_gen_t> (new flame_gen_t(fflame_constants::imheight, fflame_constants::imwidth, num_working_variants, num_generator_threads));
-    //pass in a queue to hold the finished flame frames
-    //auto bg_framequeue = std::unique_ptr<EventQueue<frame_t<pixel_t>>>(new EventQueue<frame_t<pixel_t>>(num_images));
-
-    typename flame_gen_t::template ts_queue_t <frame_t<pixel_t>> bg_framequeue;
-    auto bg_framequeue_p = &bg_framequeue;
-    bg_generator->register_framequeue(bg_framequeue_p);    
-    bg_generator->start_generation();
-
     int output_index = 0;
     std::unique_ptr<frame_t<pixel_t>> prev_image;
     //frame_t<pixel_t> prev_image;
@@ -118,7 +105,43 @@ void generate_fractal_flames (const bfs::path output_dir, const int num_working_
             }
         }
     }
+}
 
+template <template <class> class frame_t, typename pixel_t, typename data_t>
+void generate_fractal_flames (const bfs::path output_dir, const int num_working_variants, const int num_images, const bool do_interpolation = true)
+{
+    using flame_gen_t = fflame_generator<frame_t, data_t, pixel_t>;
+    const int num_generator_threads = 4;
+    auto bg_generator = std::unique_ptr<flame_gen_t> (new flame_gen_t(fflame_constants::imheight, fflame_constants::imwidth, num_working_variants, num_generator_threads));
+
+    //pass in a queue to hold the finished flame frames
+    //auto bg_framequeue = std::unique_ptr<EventQueue<frame_t<pixel_t>>>(new EventQueue<frame_t<pixel_t>>(num_images));
+    using bg_queue_t = typename flame_gen_t::template ts_queue_t <frame_t<pixel_t>>;
+    bg_queue_t bg_framequeue;
+    auto bg_framequeue_p = &bg_framequeue;
+    bg_generator->register_framequeue(bg_framequeue_p);    
+
+    bg_generator->start_generation();
+    run_frame_generation<bg_queue_t, frame_t, pixel_t> (bg_framequeue, output_dir, num_images, do_interpolation); 
+    bg_generator->stop_generation();
+}
+
+template <template <class> class frame_t, typename pixel_t, typename data_t>
+void generate_fractal_flames (const bfs::path output_dir, std::vector<std::string>&& manual_variants, const int num_images, const bool do_interpolation = true)
+{
+    using flame_gen_t = fflame_generator<frame_t, data_t, pixel_t>;
+    const int num_generator_threads = 4;
+    auto bg_generator = std::unique_ptr<flame_gen_t> (new flame_gen_t(fflame_constants::imheight, fflame_constants::imwidth, std::move(manual_variants), num_generator_threads));
+
+    //pass in a queue to hold the finished flame frames
+    //auto bg_framequeue = std::unique_ptr<EventQueue<frame_t<pixel_t>>>(new EventQueue<frame_t<pixel_t>>(num_images));
+    using bg_queue_t = typename flame_gen_t::template ts_queue_t <frame_t<pixel_t>>;
+    bg_queue_t bg_framequeue;
+    auto bg_framequeue_p = &bg_framequeue;
+    bg_generator->register_framequeue(bg_framequeue_p);    
+
+    bg_generator->start_generation();
+    run_frame_generation<bg_queue_t, frame_t, pixel_t> (bg_framequeue, output_dir, num_images, do_interpolation); 
     bg_generator->stop_generation();
 }
 
@@ -180,14 +203,34 @@ int main(int argc, char* argv[])
         return 0;
     }
 
-    //invoke via something like
-    //./fflame_gen -o ff_frames/ff_v13 -n 10 -t 100 -i 0 -v fisheye -v eyefish -v swirl -v this -v is -v a -v drill
-    //
-    //... where the -v are the manually provided variants, given in sequential order
-    //next we just have to figure out how to pass these in...
-    std::cout << "Given Variant (" << manual_variant_list.size() << ") List: " << std::endl;
-    for (auto var_id : manual_variant_list) {
-        std::cout << var_id << std::endl;
+    using data_t = double;
+    using pixel_t = cv::Vec<data_t, 3>;  
+
+    const bool use_manual_variants = num_working_variants == 0;
+    if(use_manual_variants) {
+        //invoke via something like
+        //./fflame_gen -o ff_frames/ff_v13 -n 10 -t 100 -i 0 -v fisheye -v eyefish -v swirl -v this -v is -v a -v drill
+        //
+        //... where the -v are the manually provided variants, given in sequential order
+        //next we just have to figure out how to pass these in...
+        std::cout << "Given Variant (" << manual_variant_list.size() << ") List: " << std::endl;
+        for (auto variant_id : manual_variant_list) {
+            //search the list of variant names to make sure the provided ones are valid
+            std::string manual_var = variant_id;
+            std::transform(manual_var.begin(), manual_var.end(), manual_var.begin(),
+                              [](unsigned char c) 
+                              { return std::tolower(c); });
+            auto var_it = std::find(affine_fcns::variant_list<data_t>::variant_names.begin(), affine_fcns::variant_list<data_t>::variant_names.end(),  manual_var);
+            if(var_it != affine_fcns::variant_list<data_t>::variant_names.end()) {
+                std::cout << variant_id << std::endl;
+            } else {
+                std::cout << "ERROR -- variant " << manual_var << " is not valid. Valid variants list: " << std::endl;
+                for (auto var_name : affine_fcns::variant_list<data_t>::variant_names) {
+                    std::cout << var_name << std::endl;
+                }
+                return 0;
+            }
+        }
     }
 
     //check the output directory path (if it doesn't exist, create it)
@@ -199,11 +242,13 @@ int main(int argc, char* argv[])
         }
     }
 
-    using data_t = double;
-    using pixel_t = cv::Vec<data_t, 3>;  
 
     bool do_interpolation_flag = do_interpolation != 0;
-    generate_fractal_flames<frame_t, pixel_t, data_t> (output_dir, num_working_variants, num_images, do_interpolation_flag);
+    if(use_manual_variants) {
+        generate_fractal_flames<frame_t, pixel_t, data_t> (output_dir, std::move(manual_variant_list), num_images, do_interpolation_flag);
+    } else {
+        generate_fractal_flames<frame_t, pixel_t, data_t> (output_dir, num_working_variants, num_images, do_interpolation_flag);
+    }
 
     return 0;
 }

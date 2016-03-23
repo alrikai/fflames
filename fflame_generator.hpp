@@ -46,6 +46,18 @@ public:
         fflame_state.store(false);
     }
 
+    fflame_generator (const int imheight, const int imwidth, std::vector<std::string>&& manual_variants, const int num_workers = std::thread::hardware_concurrency())
+        : num_workers(num_workers), imheight(imheight), imwidth(imwidth), fflame_histoqueue(100, 30), num_working_variants (manual_variants.size()),
+         flame_prebarrier(num_workers), flame_postbarrier(num_workers), fflame_th(nullptr), fflame_histdata(nullptr), flame_gen(flame_rd()),
+         total_variant_rng (0, affine_fcns::variant_list<data_t>::variant_names.size()-1) 
+    {
+        //NOTE: this has to be shared between all the worker threads
+        fflame_histdata = std::unique_ptr<fflame_data<data_t, pixel_t>>(new fflame_data<data_t, pixel_t>());        
+        
+        initialize_variants(std::move(manual_variants));
+        fflame_state.store(false);
+    }
+
     ~fflame_generator()
     {
         if(fflame_state.load())
@@ -90,6 +102,24 @@ public:
 
 private:
     
+    void initialize_variants(std::vector<std::string>&& manual_variants)
+    {
+        std::vector<std::unique_ptr<affine_fcns::variant<data_t>>> working_variants; 
+        
+        //NOTE: we always want to have the linear variant (variant #0 -- except when doing manual variants, since we assume the user is competent)
+        for (int variant_idx = 0; variant_idx < num_working_variants; ++variant_idx) 
+        {
+            //NOTE: we assume that the variants were already validated in the caller 
+            auto selected_variant = manual_variants[variant_idx];
+            std::cout << "Variant [" << variant_idx << "]: " << selected_variant << " (" << variant_idx << ")" << std::endl;
+            //working_variants.at(i) = std::shared_ptr<affine_fcns::variant<data_t>>(variant_maker.flame_maker.create_product(selected_variant));
+            working_variants.emplace_back(std::unique_ptr<affine_fcns::variant<data_t>>(variant_maker.flame_maker.create_product(selected_variant)));
+        } 
+    
+        flamer = std::unique_ptr<affine_fcns::invoker<data_t>> (new affine_fcns::invoker<data_t>(std::move(working_variants)));
+        flamer->randomize_parameters(-2, 2);
+    }
+
     void initialize_variants()
     {
         //std::vector<std::shared_ptr<affine_fcns::variant<data_t>>> working_variants(num_working_variants); 
@@ -240,7 +270,7 @@ void fflame_generator<frame_t, data_t, pixel_t>::generate_fflame(fflame_util::fa
 
             //4. mutate the variants
             //NOTE: I can/should do some changes here -- 
-            //  2. don't duplicate already selected variants 
+            //  2. don't duplicate already selected variants  
             auto selected_variant = affine_fcns::variant_list<data_t>::variant_names[total_variant_rng(flame_gen)];
             //replace a random variant (that's not the linear variant)
             int mod_idx = total_variant_rng(flame_gen) % (num_working_variants-1) + 1;
