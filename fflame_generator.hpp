@@ -35,7 +35,7 @@ class fflame_generator
 public:
     //NOTE: can (try to) get a reproducable sequence by not initializing flame_gen(flame_rd())? 
     fflame_generator (const int imheight, const int imwidth, const int num_variants, const int num_workers = std::thread::hardware_concurrency())
-        : num_workers(num_workers), imheight(imheight), imwidth(imwidth), fflame_histoqueue(100, 30), num_working_variants (num_variants),
+        : num_workers(num_workers), imheight(imheight), imwidth(imwidth), num_working_variants (num_variants), fflame_histoqueue(100, 30),
          flame_prebarrier(num_workers), flame_postbarrier(num_workers), fflame_th(nullptr), fflame_histdata(nullptr),
          flame_gen(flame_rd()), total_variant_rng (0, affine_fcns::variant_list<data_t>::variant_names.size()-1) 
     {
@@ -47,7 +47,7 @@ public:
     }
 
     fflame_generator (const int imheight, const int imwidth, std::vector<std::string>&& manual_variants, const int num_workers = std::thread::hardware_concurrency())
-        : num_workers(num_workers), imheight(imheight), imwidth(imwidth), fflame_histoqueue(100, 30), num_working_variants (manual_variants.size()),
+        : num_workers(num_workers), imheight(imheight), imwidth(imwidth), num_working_variants (manual_variants.size()), fflame_histoqueue(100, 30),
          flame_prebarrier(num_workers), flame_postbarrier(num_workers), fflame_th(nullptr), fflame_histdata(nullptr), flame_gen(flame_rd()),
          total_variant_rng (0, affine_fcns::variant_list<data_t>::variant_names.size()-1) 
     {
@@ -73,6 +73,7 @@ public:
     template <typename T>
     using ts_queue_t = boost::lockfree::spsc_queue<T, boost::lockfree::capacity<1024>>;
 #endif
+
     void start_generation()
     {
         //if already started, don't try to start again
@@ -102,52 +103,18 @@ public:
     }
 
 private:
-    
-    void initialize_variants(std::vector<std::string>&& manual_variants)
-    {
-        std::vector<std::unique_ptr<affine_fcns::variant<data_t>>> working_variants; 
-        
-        //NOTE: we always want to have the linear variant (variant #0 -- except when doing manual variants, since we assume the user is competent)
-        for (int variant_idx = 0; variant_idx < num_working_variants; ++variant_idx) 
-        {
-            //NOTE: we assume that the variants were already validated in the caller 
-            auto selected_variant = manual_variants[variant_idx];
-            std::cout << "Variant [" << variant_idx << "]: " << selected_variant << " (" << variant_idx << ")" << std::endl;
-            //working_variants.at(i) = std::shared_ptr<affine_fcns::variant<data_t>>(variant_maker.flame_maker.create_product(selected_variant));
-            working_variants.emplace_back(std::unique_ptr<affine_fcns::variant<data_t>>(variant_maker.flame_maker.create_product(selected_variant)));
-        } 
-    
-        flamer = std::unique_ptr<affine_fcns::invoker<data_t>> (new affine_fcns::invoker<data_t>(std::move(working_variants)));
-        flamer->randomize_parameters(-2, 2);
-    }
-
-    void initialize_variants()
-    {
-        //std::vector<std::shared_ptr<affine_fcns::variant<data_t>>> working_variants(num_working_variants); 
-        std::vector<std::unique_ptr<affine_fcns::variant<data_t>>> working_variants; 
-        
-        //NOTE: we always want to have the linear variant (variant #0)
-        auto linear_variant_id = affine_fcns::variant_list<data_t>::variant_names[0];
-        working_variants.emplace_back(std::unique_ptr<affine_fcns::variant<data_t>>(variant_maker.flame_maker.create_product(linear_variant_id)));
-        for (int i = 0; i < num_working_variants - 1; ++i) 
-        {
-            int variant_idx = total_variant_rng(flame_gen);
-            auto selected_variant = affine_fcns::variant_list<data_t>::variant_names[variant_idx];
-            std::cout << "Variant [" << i << "]: " << selected_variant << " (" << variant_idx << ")" << std::endl;
-            //working_variants.at(i) = std::shared_ptr<affine_fcns::variant<data_t>>(variant_maker.flame_maker.create_product(selected_variant));
-            working_variants.emplace_back(std::unique_ptr<affine_fcns::variant<data_t>>(variant_maker.flame_maker.create_product(selected_variant)));
-        } 
-    
-        flamer = std::unique_ptr<affine_fcns::invoker<data_t>> (new affine_fcns::invoker<data_t>(std::move(working_variants)));
-        flamer->randomize_parameters(-2, 2);
-    }
-    
+    void initialize_variants(std::vector<std::string>&& manual_variants);
+    void initialize_variants();
     void start_fflame_generation();
     void generate_fflame(fflame_util::fast_rand& rand_gen);
     void render_fflame();
 
+    //number of threads used for the generation (not counting rendering)
+    int num_workers;
+    int imheight;
+    int imwidth;
+
     //the number of variants to have active
-    //static constexpr uint8_t num_working_variants = 5;
     uint8_t num_working_variants;
     std::thread::id worker_overlord_id;
 
@@ -158,11 +125,6 @@ private:
     //controls the starting and stopping of the worker threads
     std::mutex gen_mtx;
     std::condition_variable gen_cv;
-
-    //number of threads used for the generation (not counting rendering)
-    int num_workers;
-    int imheight;
-    int imwidth;
 
     //for passing results asynchronously between the generate & render steps
     //EventQueue<cv::Mat_<histogram_info<pixel_t>>> fflame_histoqueue;
@@ -193,6 +155,48 @@ private:
     //std::uniform_int_distribution<uint8_t> working_variant_rng; 
     std::uniform_int_distribution<> total_variant_rng; 
 };
+
+
+template <template <class> class frame_t, typename data_t, typename pixel_t>
+void fflame_generator<frame_t, data_t, pixel_t>::initialize_variants(std::vector<std::string>&& manual_variants)
+{
+    std::vector<std::unique_ptr<affine_fcns::variant<data_t>>> working_variants; 
+    
+    //NOTE: we always want to have the linear variant (variant #0 -- except when doing manual variants, since we assume the user is competent)
+    for (int variant_idx = 0; variant_idx < num_working_variants; ++variant_idx) 
+    {
+        //NOTE: we assume that the variants were already validated in the caller 
+        auto selected_variant = manual_variants[variant_idx];
+        std::cout << "Variant [" << variant_idx << "]: " << selected_variant << " (" << variant_idx << ")" << std::endl;
+        //working_variants.at(i) = std::shared_ptr<affine_fcns::variant<data_t>>(variant_maker.flame_maker.create_product(selected_variant));
+        working_variants.emplace_back(std::unique_ptr<affine_fcns::variant<data_t>>(variant_maker.flame_maker.create_product(selected_variant)));
+    } 
+
+    flamer = std::unique_ptr<affine_fcns::invoker<data_t>> (new affine_fcns::invoker<data_t>(std::move(working_variants)));
+    flamer->randomize_parameters(-2, 2);
+}
+
+template <template <class> class frame_t, typename data_t, typename pixel_t>
+void fflame_generator<frame_t, data_t, pixel_t>::initialize_variants()
+{
+    //std::vector<std::shared_ptr<affine_fcns::variant<data_t>>> working_variants(num_working_variants); 
+    std::vector<std::unique_ptr<affine_fcns::variant<data_t>>> working_variants; 
+    
+    //NOTE: we always want to have the linear variant (variant #0)
+    auto linear_variant_id = affine_fcns::variant_list<data_t>::variant_names[0];
+    working_variants.emplace_back(std::unique_ptr<affine_fcns::variant<data_t>>(variant_maker.flame_maker.create_product(linear_variant_id)));
+    for (int i = 0; i < num_working_variants - 1; ++i) 
+    {
+        int variant_idx = total_variant_rng(flame_gen);
+        auto selected_variant = affine_fcns::variant_list<data_t>::variant_names[variant_idx];
+        std::cout << "Variant [" << i << "]: " << selected_variant << " (" << variant_idx << ")" << std::endl;
+        //working_variants.at(i) = std::shared_ptr<affine_fcns::variant<data_t>>(variant_maker.flame_maker.create_product(selected_variant));
+        working_variants.emplace_back(std::unique_ptr<affine_fcns::variant<data_t>>(variant_maker.flame_maker.create_product(selected_variant)));
+    } 
+
+    flamer = std::unique_ptr<affine_fcns::invoker<data_t>> (new affine_fcns::invoker<data_t>(std::move(working_variants)));
+    flamer->randomize_parameters(-2, 2);
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     
@@ -288,6 +292,8 @@ void fflame_generator<frame_t, data_t, pixel_t>::render_fflame()
     bool got_histdata = false;
     //int raw_counter = 0; 
 
+    fflame_renderer<data_t> flame_image_renderer;
+
     double total_render_time = 0;
     while(fflame_state.load())
     {
@@ -301,7 +307,7 @@ void fflame_generator<frame_t, data_t, pixel_t>::render_fflame()
             std::fill(image->data, image->data + image->rows * image->cols, 0);
 
             //2. call the rendering routine, get resultant image
-            render_fractal_flame<frame_t, data_t, pixel_t>(image.get(), std::move(hist_info));
+            flame_image_renderer.template render <frame_t, pixel_t> (image.get(), std::move(hist_info));
 
 /*
             //filter out the flames that are too sparse
