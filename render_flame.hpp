@@ -22,6 +22,12 @@ void render_fractal_flame(frame_t<pixel_t>* image, std::unique_ptr<std::vector<h
                 { return lhs.frequency_count < rhs.frequency_count; })).frequency_count;
     //get the log of the maximum frequency count
     const data_t freq_max_log = std::log10(static_cast<data_t>(max_freq));
+
+    //--------------------------------------------------------------------------------------------
+    if(std::abs(freq_max_log) < 0.00001f) {
+        std::cout << "NOTE -- this will end badly" << std::endl;
+    }
+    //--------------------------------------------------------------------------------------------
     
     //density estimation parameters
     const double min_est = 0.0;
@@ -56,12 +62,26 @@ void render_fractal_flame(frame_t<pixel_t>* image, std::unique_ptr<std::vector<h
                 }
             }
 
+            //check for conditions that cause numerical instability
+            if(freq_avg == 0 && (color_avg[0] + color_avg[1] + color_avg[2] == 0)) {
+                raw_image.at(im_row, im_col) = color_avg;
+                continue;
+            }
+
             const auto freq_count = freq_avg;
             freq_avg /= rowpx_factor*colpx_factor;
             color_avg /= rowpx_factor*colpx_factor;
 
             data_t alpha = std::log10(freq_avg)/freq_max_log;
-            raw_image.at(im_row, im_col) = 255 * color_avg * std::pow(alpha, fflame_constants::gamma_factor); 
+            auto color_px = 255 * color_avg * std::pow(alpha, fflame_constants::gamma_factor); 
+
+            for (int color_idx = 0; color_idx < 3; color_idx++) {
+                if(std::isnan(color_px[color_idx]) || std::isinf(color_px[color_idx])) {
+                    std::cout << "NOTE: got NaN/Inf in rendered image" << std::endl;
+                }
+            }
+
+            raw_image.at(im_row, im_col) = color_px;
 
             //next, we apply the density estimation filtering
             int kernel_width = std::lround(std::max(min_est, (est_radius / (std::pow(static_cast<double>(freq_count), est_curve)))));
@@ -92,15 +112,20 @@ void render_fractal_flame(frame_t<pixel_t>* image, std::unique_ptr<std::vector<h
         }
     }
 
+    //--------------------------------------------------------------------------------------------
     //get rid of any NaNs
-	for (int row = 0; row < raw_image.rows; ++row) {
+    for (int row = 0; row < raw_image.rows; ++row) {
         auto raw_rowp = raw_image.ptr(row);
-		for (int col = 0; col < raw_image.cols; ++col, ++raw_rowp) {
-            if(*raw_rowp != *raw_rowp) {
-                *raw_rowp = background_pixel;
-			} 
-		}
-	}
+        for (int col = 0; col < raw_image.cols; ++col, ++raw_rowp) {
+            auto color_px = *raw_rowp;
+            for (int color_idx = 0; color_idx < 3; color_idx++) {
+                if(std::isnan(color_px[color_idx]) || std::isinf(color_px[color_idx])) {
+                    std::cout << "NOTE: got NaN/Inf in rendered image" << std::endl;
+                }
+            }
+        }
+    }
+    //--------------------------------------------------------------------------------------------
 	
 	/*
     cv::Mat_<cv::Vec<uint8_t, 3>> mask = cv::Mat(raw_image != raw_image);
@@ -129,15 +154,25 @@ void render_fractal_flame(frame_t<pixel_t>* image, std::unique_ptr<std::vector<h
                     for (int k_col = std::max(0, im_col-kernel_hwidth); k_col < std::min(fflame_constants::imwidth-1, im_col+kernel_hwidth); ++k_col, ++kernel_cidx) {
                         if (kernel_ridx < kernel.rows || kernel_cidx < kernel.cols) {
                             image->at(im_row, im_col) += raw_image.at(k_row, k_col) * kernel(kernel_ridx, kernel_cidx);
-						} else {
+                        } else {
                             std::cout << "NOTE: out of bounds on the kernel" << std::endl;
-						}
-					}
-				}
-            }
-            else {
+                        }
+					
+                    }
+				
+                }
+            } else {
                 image->at(im_row, im_col) = raw_image.at(im_row, im_col);
-			}
+            }
+
+            {
+            auto color_px = image->at(im_row, im_col);
+            for (int color_idx = 0; color_idx < 3; color_idx++) {
+                if(std::isnan(color_px[color_idx]) || std::isinf(color_px[color_idx])) {
+                    std::cout << "NOTE: got NaN/Inf in rendered image" << std::endl;
+                }
+            }
+            }
         }
     }
 }

@@ -60,8 +60,9 @@ public:
 
     ~fflame_generator()
     {
-        if(fflame_state.load())
+        if(fflame_state.load()) {
             stop_generation();
+        }
     }
 
 
@@ -222,15 +223,8 @@ void fflame_generator<frame_t, data_t, pixel_t>:: start_fflame_generation()
         }
     }
     
-        
-    auto start_render_time = std::chrono::high_resolution_clock::now();
-
     //prepare the image and push the image to the shared queue
     render_fflame();
-
-    auto end_render_time = std::chrono::high_resolution_clock::now();
-    double time_elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end_render_time - start_render_time).count(); 
-    std::cout << "rendering took -- " << time_elapsed << " ms" << std::endl;      
 }
 
 template <typename pixel_t>
@@ -294,12 +288,15 @@ void fflame_generator<frame_t, data_t, pixel_t>::render_fflame()
     bool got_histdata = false;
     //int raw_counter = 0; 
 
+    double total_render_time = 0;
     while(fflame_state.load())
     {
         //1. get the histogram
         auto hist_info = fflame_histoqueue.pop(got_histdata);
         if(got_histdata && hist_info)
         {
+            auto start_render_time = std::chrono::high_resolution_clock::now();
+
             std::unique_ptr<frame_t<pixel_t>> image = std::unique_ptr<frame_t<pixel_t>>(new frame_t<pixel_t>(fflame_constants::imheight, fflame_constants::imwidth));
             std::fill(image->data, image->data + image->rows * image->cols, 0);
 
@@ -332,7 +329,12 @@ void fflame_generator<frame_t, data_t, pixel_t>::render_fflame()
 */
 
             fflame_imagequeue->push(std::move(image));
+
+            auto end_render_time = std::chrono::high_resolution_clock::now();
+            total_render_time += std::chrono::duration_cast<std::chrono::milliseconds>(end_render_time - start_render_time).count(); 
         }
     }
+
+    std::cout << "rendering took -- " << total_render_time << " ms" << std::endl;      
 }
 #endif
