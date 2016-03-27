@@ -876,17 +876,36 @@ namespace affine_fcns
     struct invoker
     {
         using flame_fcn = std::unique_ptr<variant<data_t>>; 
-        invoker(std::vector<flame_fcn>&& fcn_default)
-            : fcn(std::move(fcn_default)), variant_rng(0,0)
+
+        invoker(std::vector<std::string>&& default_variant_ids)
+            : fcn(default_variant_ids.size()), current_variant_ids(default_variant_ids.size()), variant_rng(0,0)
+        {
+            for (int i = 0; i < default_variant_ids.size(); i++) {
+                set_variant(i, default_variant_ids[i]);
+            }
+            setup_affine_defaults();
+            seed_rng();
+        }
+
+        invoker(const int num_working_variants)
+            : fcn(num_working_variants), current_variant_ids(num_working_variants), variant_rng(0,0)
+        {
+            setup_affine_defaults();
+            seed_rng();
+        }
+
+        inline void setup_affine_defaults()
         {
             flame_fcn_params<data_t> default_p {0, 0, 0, 0, 0, 0};
-
             for (int fcn_idx = 0; fcn_idx < fcn.size(); fcn_idx++) {
                 affine_preparameters.push_back(default_p);
-                affine_postparameters.push_back(default_p);    
+                affine_postparameters.push_back(default_p);                                
             }
+        }
 
-            //seed the fast RNG
+        inline void seed_rng()
+        {
+            //seed the fast RNG            
             std::mt19937 variant_gen;
             std::uniform_int_distribution<uint64_t> variant_dist (0, std::numeric_limits<uint64_t>::max());         
             variant_rng.reseed(variant_dist(variant_gen), variant_dist(variant_gen));
@@ -935,10 +954,41 @@ namespace affine_fcns
                 affine_postparameters [fcn_idx] = std::move(affine_postparams);
             }
         }
+
+        bool check_variant_valid(const std::string& selected_variant) const
+        {
+            bool is_valid_variant = true;
+            for (int i = 0; i < fcn.size(); i++) {
+                //NOTE: we don't want repeated variants, as that seems to yield worse outputs (anecdotally, at least)
+                if(current_variant_ids[i] == selected_variant) {
+                    is_valid_variant = false;
+                    break;   
+                }
+            }
+
+            return is_valid_variant;
+        }
+
+        void set_variant(const int variant_idx, const std::string& selected_variant)
+        {
+            current_variant_ids [variant_idx] = selected_variant;
+            fcn.at(variant_idx).reset(variant_maker.flame_maker.create_product(selected_variant)); 
+        }
+
+        inline void print_variant_list() const 
+        {
+            std::cout << "Current Variant List:" << std::endl;
+            for (int i = 0; i < current_variant_ids.size(); i++) {
+                std::cout << "[" << i << "]: " << current_variant_ids[i] << std::endl;
+            }
+        }
         
         std::vector<flame_fcn> fcn;
         std::map<std::string, flame_fcn> fcn_finder;
         std::vector<data_t> fcn_probabilities;
+
+        variant_list<data_t> variant_maker;
+        std::vector<std::string> current_variant_ids;
 
         std::vector<flame_fcn_params<data_t>> affine_preparameters;
         std::vector<flame_fcn_params<data_t>> affine_postparameters;

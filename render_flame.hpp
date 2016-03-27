@@ -107,7 +107,7 @@ void fflame_renderer<data_t>::compute_rawimage_density (frame_t<pixel_t>& raw_im
 
             //--------------------------------------------------------------------------------------------
             //check for conditions that cause numerical instability
-            if(std::abs(freq_avg) < 0.00001f && (color_avg[0] + color_avg[1] + color_avg[2] == 0)) {
+            if(std::abs(freq_avg) < 1.00001f || (color_avg[0] + color_avg[1] + color_avg[2] == 0)) {
                 raw_image.at(im_row, im_col) = color_avg;
                 continue;
             }

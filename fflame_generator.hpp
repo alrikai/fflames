@@ -146,7 +146,6 @@ private:
 
     //holds the list of the current variation functions to use
     std::unique_ptr<affine_fcns::invoker<data_t>> flamer; 
-    affine_fcns::variant_list<data_t> variant_maker;
     std::unique_ptr<fflame_data<data_t, pixel_t>> fflame_histdata;
 
     //the various RNGs needed for the generation
@@ -160,41 +159,30 @@ private:
 template <template <class> class frame_t, typename data_t, typename pixel_t>
 void fflame_generator<frame_t, data_t, pixel_t>::initialize_variants(std::vector<std::string>&& manual_variants)
 {
-    std::vector<std::unique_ptr<affine_fcns::variant<data_t>>> working_variants; 
-    
-    //NOTE: we always want to have the linear variant (variant #0 -- except when doing manual variants, since we assume the user is competent)
-    for (int variant_idx = 0; variant_idx < num_working_variants; ++variant_idx) 
-    {
-        //NOTE: we assume that the variants were already validated in the caller 
-        auto selected_variant = manual_variants[variant_idx];
-        std::cout << "Variant [" << variant_idx << "]: " << selected_variant << " (" << variant_idx << ")" << std::endl;
-        //working_variants.at(i) = std::shared_ptr<affine_fcns::variant<data_t>>(variant_maker.flame_maker.create_product(selected_variant));
-        working_variants.emplace_back(std::unique_ptr<affine_fcns::variant<data_t>>(variant_maker.flame_maker.create_product(selected_variant)));
-    } 
-
-    flamer = std::unique_ptr<affine_fcns::invoker<data_t>> (new affine_fcns::invoker<data_t>(std::move(working_variants)));
+    flamer = std::unique_ptr<affine_fcns::invoker<data_t>> (new affine_fcns::invoker<data_t>(std::move(manual_variants)));
     flamer->randomize_parameters(-2, 2);
 }
 
 template <template <class> class frame_t, typename data_t, typename pixel_t>
 void fflame_generator<frame_t, data_t, pixel_t>::initialize_variants()
 {
-    //std::vector<std::shared_ptr<affine_fcns::variant<data_t>>> working_variants(num_working_variants); 
-    std::vector<std::unique_ptr<affine_fcns::variant<data_t>>> working_variants; 
-    
+    flamer = std::unique_ptr<affine_fcns::invoker<data_t>> (new affine_fcns::invoker<data_t>(num_working_variants));
     //NOTE: we always want to have the linear variant (variant #0)
-    auto linear_variant_id = affine_fcns::variant_list<data_t>::variant_names[0];
-    working_variants.emplace_back(std::unique_ptr<affine_fcns::variant<data_t>>(variant_maker.flame_maker.create_product(linear_variant_id)));
-    for (int i = 0; i < num_working_variants - 1; ++i) 
+    int variant_idx = 0;
+    auto linear_variant_id = affine_fcns::variant_list<data_t>::variant_names[variant_idx];
+    flamer->set_variant(variant_idx, linear_variant_id);
+    for (int i = variant_idx + 1; i < num_working_variants; ++i) 
     {
-        int variant_idx = total_variant_rng(flame_gen);
-        auto selected_variant = affine_fcns::variant_list<data_t>::variant_names[variant_idx];
-        std::cout << "Variant [" << i << "]: " << selected_variant << " (" << variant_idx << ")" << std::endl;
-        //working_variants.at(i) = std::shared_ptr<affine_fcns::variant<data_t>>(variant_maker.flame_maker.create_product(selected_variant));
-        working_variants.emplace_back(std::unique_ptr<affine_fcns::variant<data_t>>(variant_maker.flame_maker.create_product(selected_variant)));
-    } 
+        std::string selected_variant;
+        //keep re-rolling the variant until we get a valid one
+        do {
+            variant_idx = total_variant_rng(flame_gen);
+            selected_variant = affine_fcns::variant_list<data_t>::variant_names[variant_idx];
+        } while(!flamer->check_variant_valid(selected_variant));
 
-    flamer = std::unique_ptr<affine_fcns::invoker<data_t>> (new affine_fcns::invoker<data_t>(std::move(working_variants)));
+        //can assume by here that the selected variant is a valid one
+        flamer->set_variant(i, selected_variant);
+    } 
     flamer->randomize_parameters(-2, 2);
 }
 
@@ -259,6 +247,8 @@ void fflame_generator<frame_t, data_t, pixel_t>::generate_fflame(fflame_util::fa
         //merge the N thread results using the overlord thread
         if(std::this_thread::get_id() == worker_overlord_id)
         {
+            static std::vector<std::string> mutated_variant_ids (num_working_variants, "default");
+
             //somewhat unfortunate, but need to dynamically allocate to avoid scoping problems
             auto hist_info = std::unique_ptr<std::vector<histogram_info<pixel_t>>>(new std::vector<histogram_info<pixel_t>>(imheight * imwidth));
             fflame_histdata->get_and_reset(*hist_info);
@@ -267,16 +257,19 @@ void fflame_generator<frame_t, data_t, pixel_t>::generate_fflame(fflame_util::fa
             fflame_histoqueue.push(std::move(hist_info));
 
             //4. mutate the variants
-            //NOTE: I can/should do some changes here -- 
-            //  2. don't duplicate already selected variants  
-            auto selected_variant = affine_fcns::variant_list<data_t>::variant_names[total_variant_rng(flame_gen)];
+            std::string selected_variant;
+            //keep re-rolling the variant until we get a valid one
+            do {
+                selected_variant = affine_fcns::variant_list<data_t>::variant_names[total_variant_rng(flame_gen)];
+            } while(!flamer->check_variant_valid(selected_variant));
+
             //replace a random variant (that's not the linear variant)
             int mod_idx = total_variant_rng(flame_gen) % (num_working_variants-1) + 1;
-
-            std::cout << "mutating variant " << mod_idx << " --> " << selected_variant << std::endl;
-
-            flamer->fcn.at(mod_idx).reset(variant_maker.flame_maker.create_product(selected_variant)); 
+            //can assume by here that the selected variant is a valid one
+            flamer->set_variant(mod_idx, selected_variant);
             flamer->randomize_parameters(-2, 2);
+
+            flamer->print_variant_list();
 
             //there should be no threads waiting at the pre-barrier at this point; the other (non-overlord) threads
             //should be waiting at the post-barrier 
