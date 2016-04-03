@@ -96,23 +96,58 @@ void run_frame_generation (framequeue_t& bg_framequeue, const bfs::path output_d
                 }
                 prev_image.swap(fflame_frame);
             } else {
+                /*
+                //Q: how do we normalize? We could get the maximum R, G, and B hcannels?
+                pixel_t min_pxval;
+                pixel_t max_pxval;
+                std::for_each(fflame_frame->data, fflame_frame->data + fflame_frame->rows * fflame_frame->cols,
+                            [&min_pxval, &max_pxval] (const pixel_t& pxval) {
+                                for (int k = 0; k < pixel_t::channels; k++) {
+                                    if(pxval[k] > max_pxval[k]) {
+                                        max_pxval[k] = pxval[k];
+                                    }
+                                    if(pxval[k] < min_pxval[k]) {
+                                        min_pxval[k] = pxval[k];
+                                    }
+                                }
+                            });
+
+                std::cout << "Per-channel MIN: {" << min_pxval[0] << ", " << min_pxval[1] << ", " << min_pxval[2] << "}" << std::endl;
+                std::cout << "Per-channel MAX: {" << max_pxval[0] << ", " << max_pxval[1] << ", " << max_pxval[2] << "}" << std::endl;
+                pixel_t dynamic_channel_range = max_pxval - min_pxval;
+                cv::divide(255, dynamic_channel_range, dynamic_channel_range);
+                std::for_each(fflame_frame->data, fflame_frame->data + fflame_frame->rows * fflame_frame->cols,
+                        [min_pxval, dynamic_channel_range](pixel_t& pxval) {
+                            pxval = (pxval - min_pxval).mul(dynamic_channel_range);
+                        });
+                */
                 cv::Mat_<pixel_t> keyframe_img (fflame_frame->rows, fflame_frame->cols, fflame_frame->data);
+
                 //NOTE: we'll 'lose' the last frame generated in this manner?
                 auto output_keyframe_fpath = output_dir;
-                output_keyframe_fpath /= "baseframe_" + std::to_string(frame_idx) + ".png";
+                output_keyframe_fpath /= "baseframe_" + std::to_string(frame_idx);
                 const std::string out_keyframe_filepath = output_keyframe_fpath.native();
-                cv::imwrite(out_keyframe_filepath, keyframe_img);
+
+                //write out the yml file...
+                cv::FileStorage keyframe_ymlfile(out_keyframe_filepath + ".yml", cv::FileStorage::WRITE);
+                keyframe_ymlfile << "baseframe_" + std::to_string(frame_idx) << keyframe_img;
+
+                cv::Mat logged_image;
+                keyframe_img.convertTo(logged_image, CV_8UC3);
+                //... and the image file
+                cv::imwrite(out_keyframe_filepath + ".png", logged_image);
+
             }
         }
     }
 }
 
 template <template <class> class frame_t, typename pixel_t, typename data_t>
-void generate_fractal_flames (const bfs::path output_dir, const int num_working_variants, const int num_images, const bool do_interpolation = true)
+void generate_fractal_flames (const bfs::path output_dir, const int render_height, const int render_width, const int num_working_variants, const int num_images, const bool do_interpolation = true)
 {
     using flame_gen_t = fflame_generator<frame_t, data_t, pixel_t>;
     const int num_generator_threads = 4;
-    auto bg_generator = std::unique_ptr<flame_gen_t> (new flame_gen_t(fflame_constants::imheight, fflame_constants::imwidth, num_working_variants, num_generator_threads));
+    auto bg_generator = std::unique_ptr<flame_gen_t> (new flame_gen_t(render_height, render_width, num_working_variants, num_generator_threads));
 
     //pass in a queue to hold the finished flame frames
     //auto bg_framequeue = std::unique_ptr<EventQueue<frame_t<pixel_t>>>(new EventQueue<frame_t<pixel_t>>(num_images));
@@ -127,11 +162,11 @@ void generate_fractal_flames (const bfs::path output_dir, const int num_working_
 }
 
 template <template <class> class frame_t, typename pixel_t, typename data_t>
-void generate_fractal_flames (const bfs::path output_dir, std::vector<std::string>&& manual_variants, const int num_images, const bool do_interpolation = true)
+void generate_fractal_flames (const bfs::path output_dir, const int render_height, const int render_width, std::vector<std::string>&& manual_variants, const int num_images, const bool do_interpolation = true)
 {
     using flame_gen_t = fflame_generator<frame_t, data_t, pixel_t>;
     const int num_generator_threads = 4;
-    auto bg_generator = std::unique_ptr<flame_gen_t> (new flame_gen_t(fflame_constants::imheight, fflame_constants::imwidth, std::move(manual_variants), num_generator_threads));
+    auto bg_generator = std::unique_ptr<flame_gen_t> (new flame_gen_t(render_height, render_width, std::move(manual_variants), num_generator_threads));
 
     //pass in a queue to hold the finished flame frames
     //auto bg_framequeue = std::unique_ptr<EventQueue<frame_t<pixel_t>>>(new EventQueue<frame_t<pixel_t>>(num_images));
@@ -205,6 +240,8 @@ int main(int argc, char* argv[])
 
     using data_t = double;
     using pixel_t = cv::Vec<data_t, 3>;  
+    const int render_height = 1024;
+    const int render_width = 1024;
 
     const bool use_manual_variants = num_working_variants == 0;
     if(use_manual_variants) {
@@ -245,9 +282,9 @@ int main(int argc, char* argv[])
 
     bool do_interpolation_flag = do_interpolation != 0;
     if(use_manual_variants) {
-        generate_fractal_flames<frame_t, pixel_t, data_t> (output_dir, std::move(manual_variant_list), num_images, do_interpolation_flag);
+        generate_fractal_flames<frame_t, pixel_t, data_t> (output_dir, render_height, render_width, std::move(manual_variant_list), num_images, do_interpolation_flag);
     } else {
-        generate_fractal_flames<frame_t, pixel_t, data_t> (output_dir, num_working_variants, num_images, do_interpolation_flag);
+        generate_fractal_flames<frame_t, pixel_t, data_t> (output_dir, render_height, render_width, num_working_variants, num_images, do_interpolation_flag);
     }
 
     return 0;

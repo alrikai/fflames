@@ -19,11 +19,10 @@ class fflame_renderer
 {
 public:
 
-    fflame_renderer(const double min_est = 0.0, const double est_radius = 9.0, const double est_curve = 0.4)
+    fflame_renderer(const int render_height, const int render_width, const double min_est = 0.0, const double est_radius = 9.0, const double est_curve = 0.4)
         : min_est(min_est), est_radius(est_radius), est_curve(est_curve),         
-          rowpx_factor (fflame_constants::hist_height/fflame_constants::imheight),
-          colpx_factor (fflame_constants::hist_width/fflame_constants::imwidth)
-
+          rowpx_factor (fflame_constants::imheight/render_height),
+          colpx_factor (fflame_constants::imwidth/render_width)
     {}
 
     template <template <class> class frame_t, typename pixel_t = cv::Vec<data_t, 3>>
@@ -92,7 +91,7 @@ void fflame_renderer<data_t>::compute_rawimage_density (frame_t<pixel_t>& raw_im
         //int hist_row = im_row*rowpx_factor;     
         for (int im_col = 0; im_col < fflame_constants::imwidth; ++im_col)
         {
-            data_t freq_avg = 0;
+            data_t freq_count = 0;
             pixel_t color_avg = 0;
             //int hist_col = im_col*colpx_factor;    
             for (int supersample_row = 0; supersample_row < rowpx_factor; ++supersample_row)
@@ -100,25 +99,40 @@ void fflame_renderer<data_t>::compute_rawimage_density (frame_t<pixel_t>& raw_im
                 for (int supersample_col = 0; supersample_col < colpx_factor; ++supersample_col)
                 {
                     auto h_data = hist_data->at(hist_data_idx++);
-                    freq_avg += h_data.frequency_count;
+                    freq_count += h_data.frequency_count;
                     color_avg += h_data.color;
                 }
             }
 
             //--------------------------------------------------------------------------------------------
             //check for conditions that cause numerical instability
-            if(std::abs(freq_avg) < 1.00001f || (color_avg[0] + color_avg[1] + color_avg[2] == 0)) {
+            if(std::abs(freq_count) < 1.00001f || (color_avg[0] + color_avg[1] + color_avg[2] == 0)) {
                 raw_image.at(im_row, im_col) = color_avg;
                 continue;
             }
             //--------------------------------------------------------------------------------------------
 
+            /*
             const auto freq_count = freq_avg;
             freq_avg /= rowpx_factor*colpx_factor;
             color_avg /= rowpx_factor*colpx_factor;
             data_t alpha = std::log10(freq_avg)/freq_max_log;
 
-            auto color_px = 255 * color_avg * std::pow(alpha, fflame_constants::gamma_factor); 
+            //can use this to adjust the brightness 
+            static constexpr data_t color_pixelfactor = 200;
+            auto color_px = color_pixelfactor * color_avg * std::pow(alpha, fflame_constants::gamma_factor); 
+            */
+
+            const auto freq_avg = freq_count / rowpx_factor*colpx_factor;
+            color_avg /= rowpx_factor*colpx_factor;
+            const data_t alpha = std::log10(freq_avg)/freq_avg;
+
+            //can use this to adjust the brightness 
+            const data_t color_pixelfactor = 128 * alpha;
+            auto px_gammacorrected = std::pow(freq_avg, fflame_constants::gamma_factor);
+            auto color_px = color_pixelfactor * color_avg * px_gammacorrected; 
+
+
             //--------------------------------------------------------------------------------------------
             for (int color_idx = 0; color_idx < 3; color_idx++) {
                 if(std::isnan(color_px[color_idx]) || std::isinf(color_px[color_idx])) {
@@ -161,6 +175,12 @@ template <typename data_t>
 template <template <class> class frame_t, typename pixel_t>
 void fflame_renderer<data_t>::render_frame_density (frame_t<pixel_t>&& raw_image, frame_t<pixel_t>* image)
 {
+
+    auto max_possible_value = std::numeric_limits<typename pixel_t::value_type>::max();
+    auto min_possible_value = std::numeric_limits<typename pixel_t::value_type>::min();
+    pixel_t min_pixel (max_possible_value, max_possible_value, max_possible_value);
+    pixel_t max_pixel (min_possible_value, min_possible_value, min_possible_value); 
+
     //NOTE: have to apply the density estimation afterwards, since it requires pixels following the anchor pixel
     for (int im_row = 0; im_row < fflame_constants::imheight; ++im_row)
     {
@@ -182,24 +202,38 @@ void fflame_renderer<data_t>::render_frame_density (frame_t<pixel_t>&& raw_image
                         } else {
                             std::cout << "NOTE: out of bounds on the kernel" << std::endl;
                         }
-                    
                     }
-                
                 }
             } else {
                 image->at(im_row, im_col) = raw_image.at(im_row, im_col);
             }
 
-            //------------------------------------------------------------------------------
-            auto color_px = image->at(im_row, im_col);
-            for (int color_idx = 0; color_idx < 3; color_idx++) {
-                if(std::isnan(color_px[color_idx]) || std::isinf(color_px[color_idx])) {
-                    std::cout << "NOTE: got NaN/Inf in rendered image" << std::endl;
+            for (int k = 0; k < 3; k++) {
+                if(image->at(im_row, im_col)[k] > max_pixel[k]) {
+                    max_pixel[k] = image->at(im_row, im_col)[k];
+                }
+                if(image->at(im_row, im_col)[k] < min_pixel[k]) {
+                    min_pixel[k] = image->at(im_row, im_col)[k];
                 }
             }
-            //------------------------------------------------------------------------------
         }
     }
+
+    //Q: at this point, the data will no longer be within the [0, 256) range. Should we re-normalize here? 
+    //--> or should we let the caller do so (i.e. if they want 16bpp images?)... might as well re-normalize here
+
+    /*
+    //find the max pixel value... the question is, how to do this w/ RGB? --> per channel basis, for now
+    const pixel_t max_norm_pixel_value (255 / (max_pixel[0] - min_pixel[0]), 255 / (max_pixel[1] - min_pixel[1]), 255 / (max_pixel[2] - min_pixel[2]));
+    for (int im_row = 0; im_row < fflame_constants::imheight; ++im_row)
+    {
+        for (int im_col = 0; im_col < fflame_constants::imwidth; ++im_col)
+        {
+            image->at(im_row, im_col) = (image->at(im_row, im_col) - min_pixel).mul(max_norm_pixel_value);
+        }
+    }
+    */
+
 }
 
 

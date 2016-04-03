@@ -35,7 +35,7 @@ class fflame_generator
 public:
     //NOTE: can (try to) get a reproducable sequence by not initializing flame_gen(flame_rd())? 
     fflame_generator (const int imheight, const int imwidth, const int num_variants, const int num_workers = std::thread::hardware_concurrency())
-        : num_workers(num_workers), imheight(imheight), imwidth(imwidth), num_working_variants (num_variants), fflame_histoqueue(100, 30),
+        : num_workers(num_workers), render_imheight(imheight), render_imwidth(imwidth), num_working_variants (num_variants), fflame_histoqueue(100, 30),
          flame_prebarrier(num_workers), flame_postbarrier(num_workers), fflame_th(nullptr), fflame_histdata(nullptr),
          flame_gen(flame_rd()), total_variant_rng (0, affine_fcns::variant_list<data_t>::variant_names.size()-1) 
     {
@@ -47,7 +47,7 @@ public:
     }
 
     fflame_generator (const int imheight, const int imwidth, std::vector<std::string>&& manual_variants, const int num_workers = std::thread::hardware_concurrency())
-        : num_workers(num_workers), imheight(imheight), imwidth(imwidth), num_working_variants (manual_variants.size()), fflame_histoqueue(100, 30),
+        : num_workers(num_workers), render_imheight(imheight), render_imwidth(imwidth), num_working_variants (manual_variants.size()), fflame_histoqueue(100, 30),
          flame_prebarrier(num_workers), flame_postbarrier(num_workers), fflame_th(nullptr), fflame_histdata(nullptr), flame_gen(flame_rd()),
          total_variant_rng (0, affine_fcns::variant_list<data_t>::variant_names.size()-1) 
     {
@@ -111,8 +111,8 @@ private:
 
     //number of threads used for the generation (not counting rendering)
     int num_workers;
-    int imheight;
-    int imwidth;
+    int render_imheight;
+    int render_imwidth;
 
     //the number of variants to have active
     uint8_t num_working_variants;
@@ -250,7 +250,7 @@ void fflame_generator<frame_t, data_t, pixel_t>::generate_fflame(fflame_util::fa
             static std::vector<std::string> mutated_variant_ids (num_working_variants, "default");
 
             //somewhat unfortunate, but need to dynamically allocate to avoid scoping problems
-            auto hist_info = std::unique_ptr<std::vector<histogram_info<pixel_t>>>(new std::vector<histogram_info<pixel_t>>(imheight * imwidth));
+            auto hist_info = std::unique_ptr<std::vector<histogram_info<pixel_t>>>(new std::vector<histogram_info<pixel_t>>(fflame_constants::imheight * fflame_constants::imwidth));
             fflame_histdata->get_and_reset(*hist_info);
 
             //3.5 pass the finished histogram to the shared-buffer for rendering
@@ -285,7 +285,7 @@ void fflame_generator<frame_t, data_t, pixel_t>::render_fflame()
     bool got_histdata = false;
     //int raw_counter = 0; 
 
-    fflame_renderer<data_t> flame_image_renderer;
+    fflame_renderer<data_t> flame_image_renderer (render_imheight, render_imwidth);
 
     double total_render_time = 0;
     while(fflame_state.load())
@@ -296,7 +296,7 @@ void fflame_generator<frame_t, data_t, pixel_t>::render_fflame()
         {
             auto start_render_time = std::chrono::high_resolution_clock::now();
 
-            std::unique_ptr<frame_t<pixel_t>> image = std::unique_ptr<frame_t<pixel_t>>(new frame_t<pixel_t>(fflame_constants::imheight, fflame_constants::imwidth));
+            std::unique_ptr<frame_t<pixel_t>> image = std::unique_ptr<frame_t<pixel_t>>(new frame_t<pixel_t>(render_imheight, render_imwidth));
             std::fill(image->data, image->data + image->rows * image->cols, 0);
 
             //2. call the rendering routine, get resultant image
