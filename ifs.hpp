@@ -20,6 +20,7 @@
 #include <vector>
 #include <tuple>
 #include <map>
+#include <functional>
 
 #include <iostream>
 #include <random>
@@ -880,7 +881,7 @@ namespace affine_fcns
         invoker(std::vector<std::string>&& default_variant_ids)
             : fcn(default_variant_ids.size()), current_variant_ids(default_variant_ids.size()), variant_rng(0,0)
         {
-            for (int i = 0; i < default_variant_ids.size(); i++) {
+            for (size_t i = 0; i < default_variant_ids.size(); i++) {
                 set_variant(i, default_variant_ids[i]);
             }
             setup_affine_defaults();
@@ -897,7 +898,7 @@ namespace affine_fcns
         inline void setup_affine_defaults()
         {
             flame_fcn_params<data_t> default_p {0, 0, 0, 0, 0, 0};
-            for (int fcn_idx = 0; fcn_idx < fcn.size(); fcn_idx++) {
+            for (size_t fcn_idx = 0; fcn_idx < fcn.size(); fcn_idx++) {
                 affine_preparameters.push_back(default_p);
                 affine_postparameters.push_back(default_p);                                
             }
@@ -958,7 +959,7 @@ namespace affine_fcns
         bool check_variant_valid(const std::string& selected_variant) const
         {
             bool is_valid_variant = true;
-            for (int i = 0; i < fcn.size(); i++) {
+            for (size_t i = 0; i < fcn.size(); i++) {
                 //NOTE: we don't want repeated variants, as that seems to yield worse outputs (anecdotally, at least)
                 if(current_variant_ids[i] == selected_variant) {
                     is_valid_variant = false;
@@ -978,7 +979,7 @@ namespace affine_fcns
         inline void print_variant_list() const 
         {
             std::cout << "Current Variant List:" << std::endl;
-            for (int i = 0; i < current_variant_ids.size(); i++) {
+            for (size_t i = 0; i < current_variant_ids.size(); i++) {
                 std::cout << "[" << i << "]: " << current_variant_ids[i] << std::endl;
             }
         }

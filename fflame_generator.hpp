@@ -90,7 +90,7 @@ public:
         if(fflame_state.load())
         {
             fflame_state.store(false);
-            for (int th_idx = 0; th_idx < fflame_workers.size(); ++th_idx){
+            for (size_t th_idx = 0; th_idx < fflame_workers.size(); ++th_idx){
                 fflame_workers.at(th_idx)->finish_flame();
             }
             fflame_th->join();

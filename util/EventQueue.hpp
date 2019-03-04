@@ -22,7 +22,7 @@ template <typename EventType>
 class EventQueue
 {
 public:
-    explicit EventQueue(const int max_sz = 500, const int max_wait = 0) 
+    explicit EventQueue(const size_t max_sz = 500, const int max_wait = 0) 
         : buffer_size(max_sz), timeout_len(max_wait) 
     {}
 
@@ -65,7 +65,10 @@ public:
         swap(first.buffer_, second.buffer_);
         swap(first.buffer_size, second.buffer_size);
         swap(first.timeout_len, second.timeout_len); 
-        swap(first.queue_started, second.queue_started); 
+		auto qstart_val = first.queue_started.load();
+        auto other_qstart_val = second.queue_started.load();
+        while(std::atomic_exchange(&first.queue_started, other_qstart_val)){}
+        while(std::atomic_exchange(&second.queue_started, qstart_val)){}
     }
 
 private:
@@ -75,7 +78,7 @@ private:
 
     mutable std::mutex cleanup_;
     //maximum buffer size, will circle back around if maximum size reached
-    int buffer_size;
+    size_t buffer_size;
     int timeout_len;
 
     std::atomic<int> num_producers;
