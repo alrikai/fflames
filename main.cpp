@@ -224,7 +224,7 @@ int main(int argc, char *argv[]) {
       "number of working variants")("total-frames,t", bpo::value<int>(),
                                     "total number of keyframes to generate")(
       "variant-list,v",
-      bpo::value<std::vector<std::string>>(&manual_variant_list),
+      bpo::value<std::vector<std::string>>(&manual_variant_list)->multitoken(),
       "list of variants to use")("do-interpolation,i", bpo::value<int>(),
                                  "flag for writing out interpolated frames "
                                  "between keyframes (1: yes, 0: no)");
@@ -274,7 +274,7 @@ int main(int argc, char *argv[]) {
   const int render_height = 1024;
   const int render_width = 1024;
 
-  const bool use_manual_variants = num_working_variants == 0;
+  const bool use_manual_variants = manual_variant_list.size() > 0;
   if (use_manual_variants) {
     // invoke via something like
     //./fflame_gen -o ff_frames/ff_v13 -n 10 -t 100 -i 0 -v fisheye -v eyefish
@@ -284,6 +284,7 @@ int main(int argc, char *argv[]) {
     //order next we just have to figure out how to pass these in...
     std::cout << "Given Variant (" << manual_variant_list.size()
               << ") List: " << std::endl;
+    num_working_variants = manual_variant_list.size();
     for (auto variant_id : manual_variant_list) {
       // search the list of variant names to make sure the provided ones are
       // valid

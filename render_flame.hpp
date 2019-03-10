@@ -243,7 +243,7 @@ void fflame_renderer<data_t>::render_frame_density(frame_t<pixel_t> &&raw_image,
   // Q: at this point, the data will no longer be within the [0, 256) range.
   // Should we re-normalize here?
   //--> or should we let the caller do so (i.e. if they want 16bpp images?)...
-  //might as well re-normalize here
+  // might as well re-normalize here
 
   /*
   //find the max pixel value... the question is, how to do this w/ RGB? --> per

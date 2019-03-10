@@ -285,7 +285,9 @@ void fflame_generator<frame_t, data_t, pixel_t>::generate_fflame(
 
       // replace a random variant (that's not the linear variant)
       int mod_idx =
-          total_variant_rng(flame_gen) % (num_working_variants - 1) + 1;
+          (num_working_variants > 1)
+              ? total_variant_rng(flame_gen) % (num_working_variants - 1) + 1
+              : 0;
       // can assume by here that the selected variant is a valid one
       flamer->set_variant(mod_idx, selected_variant);
       flamer->randomize_parameters(-2, 2);
