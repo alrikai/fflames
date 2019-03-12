@@ -60,8 +60,8 @@ template <typename data_t> struct V0 : variant<data_t> {
       : variant<data_t>(weight, color) {}
 
   void apply_variant(flame_point<data_t> &point) override {
-    point.x = weight * std::sin(point.x);
-    point.y = weight * std::sin(point.y);
+    point.x = weight * point.x;
+    point.y = weight * point.y;
     detail::blend_colors(color, point);
   }
 };
