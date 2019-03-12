@@ -889,6 +889,10 @@ template <typename data_t> struct invoker {
     variant_rng.reseed(variant_dist(variant_gen), variant_dist(variant_gen));
   }
 
+  inline void seed_rng(uint64_t s0, uint64_t s1) {
+    variant_rng.reseed(s0, s1);
+  }
+
   void invoke(const size_t fcn_idx, flame_point<data_t> &pt) const {
     // apply the selected function's parameters to the input point
     assert(fcn_idx < fcn.size());
