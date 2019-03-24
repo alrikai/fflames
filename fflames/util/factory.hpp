@@ -48,6 +48,6 @@ private:
   std::map<KeyType, ProductCreator> creator_map;
 };
 
-}
+} // namespace FFlames
 
 #endif

@@ -364,5 +364,5 @@ void fflame_generator<frame_t, data_t, pixel_t>::render_fflame() {
   std::cout << "rendering took -- " << total_render_time << " ms" << std::endl;
 }
 
-}
+} // namespace FFlames
 #endif

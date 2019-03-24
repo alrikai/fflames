@@ -263,6 +263,6 @@ void fflame_renderer<data_t>::render_frame_density(frame_t<pixel_t> &&raw_image,
   */
 }
 
-}
+} // namespace FFlames
 
 #endif

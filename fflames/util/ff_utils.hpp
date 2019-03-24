@@ -119,5 +119,5 @@ private:
 };
 
 } // namespace fflame_util
-}
+} // namespace FFlames
 #endif

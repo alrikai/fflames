@@ -134,6 +134,6 @@ void run_fflame(const affine_fcns::invoker<data_t> *const flamer,
   // apply the data gathered from this run to the overall histograms
   fdata->apply_fflame_run(std::move(hist_data));
 }
-}
+} // namespace FFlames
 
 #endif

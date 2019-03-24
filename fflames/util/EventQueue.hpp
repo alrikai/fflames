@@ -125,5 +125,5 @@ template <typename EventType> bool EventQueue<EventType>::empty() {
   return buffer_.empty();
 }
 
-}
+} // namespace FFlames
 #endif

@@ -19,7 +19,6 @@
 #include <tuple>
 #include <type_traits>
 
-
 namespace FFlames {
 
 namespace fflame_constants {
@@ -262,6 +261,6 @@ private:
   std::unique_ptr<std::thread> fthread;
 };
 
-}
+} // namespace FFlames
 
 #endif
