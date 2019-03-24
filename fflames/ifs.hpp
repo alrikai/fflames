@@ -25,6 +25,8 @@
 #include <numeric>
 #include <random>
 
+namespace FFlames {
+
 namespace affine_fcns {
 namespace detail {
 template <typename data_t>
@@ -836,7 +838,7 @@ template <typename data_t> struct variant_list {
   }
 
   const static std::vector<std::string> variant_names;
-  typedef Factory<affine_fcns::variant<data_t>, std::string,
+  typedef FFlames::Factory<affine_fcns::variant<data_t>, std::string,
                   std::function<affine_fcns::variant<data_t> *()>>
       flame_factory;
   flame_factory flame_maker;
@@ -1368,5 +1370,7 @@ std::function<void(flame_point<data_t>& point)> make_variant(fcn_t, fcn_params&&
 ////////////////////////////////////////////////////////////////////////////////////////
 // will have to keep this updated as we add new variants
 // constexpr uint8_t num_variants = 6;
+
+}
 
 #endif

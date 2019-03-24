@@ -14,6 +14,8 @@
 #include <map>
 #include <opencv2/opencv.hpp>
 
+namespace FFlames {
+
 template <typename data_t> class fflame_renderer {
 public:
   fflame_renderer(const int render_height, const int render_width,
@@ -259,6 +261,8 @@ void fflame_renderer<data_t>::render_frame_density(frame_t<pixel_t> &&raw_image,
       }
   }
   */
+}
+
 }
 
 #endif

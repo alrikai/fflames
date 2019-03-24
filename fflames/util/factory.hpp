@@ -11,6 +11,8 @@
 
 #include <map>
 
+namespace FFlames {
+
 template <class ProductType, typename KeyType, typename ProductCreator>
 class Factory {
 public:
@@ -45,5 +47,7 @@ public:
 private:
   std::map<KeyType, ProductCreator> creator_map;
 };
+
+}
 
 #endif

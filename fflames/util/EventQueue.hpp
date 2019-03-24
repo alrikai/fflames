@@ -17,6 +17,8 @@
 #include <stdio.h>
 #include <thread>
 
+namespace FFlames {
+
 template <typename EventType> class EventQueue {
 public:
   explicit EventQueue(const size_t max_sz = 500, const int max_wait = 0)
@@ -123,4 +125,5 @@ template <typename EventType> bool EventQueue<EventType>::empty() {
   return buffer_.empty();
 }
 
+}
 #endif

@@ -16,6 +16,7 @@
 
 #include <iostream>
 
+namespace FFlames {
 namespace fflame_util {
 
 std::default_random_engine &get_engine() {
@@ -118,4 +119,5 @@ private:
 };
 
 } // namespace fflame_util
+}
 #endif

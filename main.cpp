@@ -68,8 +68,8 @@ int interpolate_frames(const cv::Mat_<pixel_t> &lhs_img,
 }
 
 template <typename pixel_t>
-int interpolate_frames(const flame_frame<pixel_t> &lhs_frame,
-                       const flame_frame<pixel_t> &rhs_frame,
+int interpolate_frames(const FFlames::flame_frame<pixel_t> &lhs_frame,
+                       const FFlames::flame_frame<pixel_t> &rhs_frame,
                        const int num_frames, const bfs::path out_filebasepath,
                        int frame_idx) {
   cv::Mat_<pixel_t> lhs_img(lhs_frame.rows, lhs_frame.cols, lhs_frame.data);
@@ -161,7 +161,7 @@ void generate_fractal_flames(const bfs::path output_dir,
                              const int num_working_variants,
                              const int num_images,
                              const bool do_interpolation = true) {
-  using flame_gen_t = fflame_generator<frame_t, data_t, pixel_t>;
+  using flame_gen_t = FFlames::fflame_generator<frame_t, data_t, pixel_t>;
   const int num_generator_threads = 4;
   auto bg_generator = std::unique_ptr<flame_gen_t>(
       new flame_gen_t(render_height, render_width, num_working_variants,
@@ -188,7 +188,7 @@ void generate_fractal_flames(const bfs::path output_dir,
                              std::vector<std::string> &&manual_variants,
                              const int num_images,
                              const bool do_interpolation = true) {
-  using flame_gen_t = fflame_generator<frame_t, data_t, pixel_t>;
+  using flame_gen_t = FFlames::fflame_generator<frame_t, data_t, pixel_t>;
   const int num_generator_threads = 4;
   auto bg_generator = std::unique_ptr<flame_gen_t>(
       new flame_gen_t(render_height, render_width, std::move(manual_variants),
@@ -211,7 +211,7 @@ void generate_fractal_flames(const bfs::path output_dir,
 
 //------------------------------------------------------------------------------------------------------
 template <typename pixel_t>
-using frame_t = flame_frame<pixel_t>; // cv::Mat_<pixel_t>;
+using frame_t = FFlames::flame_frame<pixel_t>; // cv::Mat_<pixel_t>;
 
 int main(int argc, char *argv[]) {
   std::vector<std::string> manual_variant_list;
@@ -292,14 +292,14 @@ int main(int argc, char *argv[]) {
       std::transform(manual_var.begin(), manual_var.end(), manual_var.begin(),
                      [](unsigned char c) { return std::tolower(c); });
       auto var_it = std::find(
-          affine_fcns::variant_list<data_t>::variant_names.begin(),
-          affine_fcns::variant_list<data_t>::variant_names.end(), manual_var);
-      if (var_it != affine_fcns::variant_list<data_t>::variant_names.end()) {
+          FFlames::affine_fcns::variant_list<data_t>::variant_names.begin(),
+          FFlames::affine_fcns::variant_list<data_t>::variant_names.end(), manual_var);
+      if (var_it != FFlames::affine_fcns::variant_list<data_t>::variant_names.end()) {
         std::cout << variant_id << std::endl;
       } else {
         std::cout << "ERROR -- variant " << manual_var
                   << " is not valid. Valid variants list: " << std::endl;
-        for (auto var_name : affine_fcns::variant_list<data_t>::variant_names) {
+        for (auto var_name : FFlames::affine_fcns::variant_list<data_t>::variant_names) {
           std::cout << var_name << std::endl;
         }
         return 0;

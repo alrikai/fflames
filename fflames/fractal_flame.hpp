@@ -23,6 +23,8 @@
 #include <thread>
 #include <utility>
 
+namespace FFlames {
+
 template <typename data_t, typename pixel_t> class fflame_data {
 public:
   // using hist_t = std::array<std::array<histogram_info<pixel_t>,
@@ -131,6 +133,7 @@ void run_fflame(const affine_fcns::invoker<data_t> *const flamer,
 
   // apply the data gathered from this run to the overall histograms
   fdata->apply_fflame_run(std::move(hist_data));
+}
 }
 
 #endif

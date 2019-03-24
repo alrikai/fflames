@@ -29,6 +29,8 @@
 #include <string>
 #include <thread>
 
+namespace FFlames {
+
 template <template <class> class frame_t, typename data_t, typename pixel_t>
 class fflame_generator {
 public:
@@ -360,5 +362,7 @@ void fflame_generator<frame_t, data_t, pixel_t>::render_fflame() {
   }
 
   std::cout << "rendering took -- " << total_render_time << " ms" << std::endl;
+}
+
 }
 #endif

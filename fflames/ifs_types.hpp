@@ -19,6 +19,9 @@
 #include <tuple>
 #include <type_traits>
 
+
+namespace FFlames {
+
 namespace fflame_constants {
 constexpr int num_samples = 1000;
 constexpr int max_iter = 20000;
@@ -258,5 +261,7 @@ private:
   fflame_util::fast_rand rand_gen;
   std::unique_ptr<std::thread> fthread;
 };
+
+}
 
 #endif
