@@ -1,0 +1,8 @@
+#/bin/bash
+
+set -e
+
+mkdir -p generated
+
+docker run -it --rm --mount type=bind,source="$(pwd)"/generated,target=/generated fflames:latest \
+	./build/fflame_gen -o /generated -n 10 -t 10 -i 0

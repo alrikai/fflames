@@ -76,7 +76,7 @@ private:
                             frame_t<pixel_t> *image);
 
   std::map<size_t, cv::Mat_<data_t>> density_est_kernels;
-  cv::Mat_<uint64_t> image_density;
+  cv::Mat_<int> image_density;
 
   // density estimation parameters
   const double min_est;
@@ -95,7 +95,7 @@ void fflame_renderer<data_t>::compute_rawimage_density(
     frame_t<pixel_t> &raw_image, const data_t freq_max_log,
     std::unique_ptr<std::vector<histogram_info<pixel_t>>> hist_data) {
   // reset the image density map for this frame
-  image_density = cv::Mat_<uint64_t>::zeros(fflame_constants::imheight,
+  image_density = cv::Mat_<int>::zeros(fflame_constants::imheight,
                                             fflame_constants::imwidth);
 
   int hist_data_idx = 0;
