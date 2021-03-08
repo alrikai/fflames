@@ -26,6 +26,4 @@ WORKDIR /build
 RUN cmake ../. && make -j4
 WORKDIR /
 
-
-#ENTRYPOINT ["bash"]
-CMD ["./build/fflame_gen --help"]
+CMD ["bash", "-c", "./build/fflame_gen", "--help"]
