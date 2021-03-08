@@ -48,7 +48,4 @@ set(FlameSRC main.cpp)
 add_executable(fflame_gen ${FlameSRC})
 target_link_libraries(fflame_gen ${OpenCV_LIBS} ${Boost_LIBRARIES} gtest_main)
 
-set(TestFlameSRC tests/variant_tests.cpp)
-add_executable(TestFlames ${TestFlameSRC})
-target_link_libraries(TestFlames gtest gtest_main)
-add_test(NAME test_fflames COMMAND TestFlames)
+add_subdirectory(tests)
