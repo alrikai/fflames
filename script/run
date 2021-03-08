@@ -1,8 +1,10 @@
 #/bin/bash
 
+OUT_DIR=${1:-"fflamegen"}
+
 set -e
 
-mkdir -p generated
+mkdir -p ${OUT_DIR}
 
-docker run -it --rm --mount type=bind,source="$(pwd)"/generated,target=/generated fflames:latest \
+docker run -it --rm --mount type=bind,source="$(pwd)/${OUT_DIR}"/generated,target="/generated fflames:latest \
 	./build/fflame_gen -o /generated -n 10 -t 10 -i 0
