@@ -20,7 +20,6 @@ COPY ./fflames /fflames
 COPY ./tests /tests
 COPY main.cpp /.
 COPY ./CMakeLists.txt* /
-COPY ./docker-entrypoint.sh /docker-entrypoint.sh
 
 RUN mkdir -p /build
 WORKDIR /build
