@@ -14,25 +14,25 @@ It spawns its own threads and operates asynchronously, generating images and wri
 ## Setup 
 
 To build the image:
-```
-./script/build
+```shell
+bash script/build
 ```
 
 ## Testing
 
 To run tests:
-```
-./script/test
+```shell
+bash script/test
 ```
 
 ## Running
 
 To generate some fractal flame images in a directory called `generated`:
-```
-./script/run generated
+```shell
+bash script/run generated
 ```
 
 To see the possible configurable parameters:
-```
+```shell
 docker run -it --rm fflames:latest
 ```

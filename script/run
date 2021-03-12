@@ -6,5 +6,7 @@ set -e
 
 mkdir -p ${OUT_DIR}
 
-docker run -it --rm --mount type=bind,source="$(pwd)/${OUT_DIR}"/generated,target="/generated fflames:latest \
-	./build/fflame_gen -o /generated -n 10 -t 10 -i 0
+docker run -it --rm \
+    --mount type=bind,source="$(pwd)/${OUT_DIR}",target="/generated" \
+	fflames:latest \
+    ./build/fflame_gen -o /generated -n 10 -t 10 -i 0

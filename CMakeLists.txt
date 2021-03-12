@@ -1,17 +1,20 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 2.13)
-project(FractalFlames)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.1...3.19)
+project(FractalFlames VERSION 1.0 
+	DESCRIPTION "Yet Another Fractal Flames Library"
+	LANGUAGES CXX)
 
-include (CTest)
+#include (CTest)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ggdb -std=c++17 -Wall -pthread -Wextra")
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pg")
-include_directories(${CMAKE_SOURCE_DIR}/.)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -pthread -Wextra")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -ggdb -O0")
+
+include_directories(${CMAKE_SOURCE_DIR})
 include_directories(${CMAKE_SOURCE_DIR}/fflames)
 
 FIND_PACKAGE(OpenCV COMPONENTS core imgproc imgcodecs REQUIRED)
-MESSAGE("opencv version: ${OpenCV_VERSION}")
-
 
 # Download and unpack googletest at configure time
 configure_file(CMakeLists.txt.in googletest-download/CMakeLists.txt)
